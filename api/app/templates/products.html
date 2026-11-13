@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Products - Cheape Deal{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+  <div><h1 class="display text-3xl font-extrabold">Products</h1>
+    <p class="muted mt-1 max-w-[62ch]">Everything you sell or plan to sell: where it comes from, where it is listed, and its price and margin. Stock and cost are checked on a schedule, and anything that would sell at a loss is hidden automatically.</p></div>
+  <div class="flex flex-wrap gap-2">
+    <a class="btn btn-accent btn-sm" href="/catalog">Import from supplier</a>
+    <a class="btn btn-ghost btn-sm" href="/products/export.csv">Export CSV</a>
+    <form method="post" action="/products/import-csv" enctype="multipart/form-data" class="flex gap-1">{{ csrf() }}<label class="sr-only" for="csvf">CSV file</label><input id="csvf" type="file" name="file" accept=".csv" required class="text-xs" style="max-width:9rem"><span class="help" style="display:block">CSV file jisme products ho. Columns ka template upar diya hai.</span><button class="btn btn-ghost btn-sm">Import CSV</button></form>
+    <form method="post" action="/products/sync">{{ csrf() }}<button class="btn btn-ghost btn-sm">Sync stock and prices now</button></form>
+    {% if dev_tools %}<form method="post" action="/dev/seed">{{ csrf() }}<button class="btn btn-ghost btn-sm">Add demo products</button></form>{% endif %}
+  </div>
+</div>
+
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" aria-label="Counts">
+  <div class="tile"><div><div class="v num">{{ ps.total }}</div><div class="k">Products in total</div></div></div>
+  <div class="tile ok"><div><div class="v num">{{ ps.listed }}</div><div class="k">Listed for sale</div></div></div>
+  <div class="tile"><div><div class="v num">{{ ps.draft }}</div><div class="k">Drafts (not listed)</div></div></div>
+  <div class="tile {{ 'warn' if ps.out_of_stock }}"><div><div class="v num">{{ ps.out_of_stock }}</div><div class="k">Out of stock</div></div></div>
+</section>
+{% if ps.by_supplier or ps.by_store %}
+<div class="flex flex-wrap gap-x-6 gap-y-1 mb-4 text-sm">
+  {% if ps.by_supplier %}<span class="muted">From:</span>{% for name, n in ps.by_supplier %}<span><b>{{ name }}</b> <span class="num muted">{{ n }}</span></span>{% endfor %}{% endif %}
+  {% if ps.by_store %}<span class="muted ml-2">Listed on:</span>{% for name, n in ps.by_store %}<span><b>{{ name }}</b> <span class="num muted">{{ n }}</span></span>{% endfor %}{% endif %}
+</div>
+{% endif %}
+
+<div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+  <nav class="tabs" aria-label="Filter">
+    {% for key, label, n in [('all','All',ps.total),('listed','Listed',ps.listed),('draft','Drafts',ps.draft),('hidden','Hidden / off',ps.hidden),('oos','Out of stock',ps.out_of_stock)] %}
+    <a href="/products?view={{ key }}{{ '&supplier=' ~ supplier if supplier }}{{ '&q=' ~ q if q }}" {% if view == key %}aria-current="true"{% endif %}>{{ label }}<span class="n">{{ n }}</span></a>
+    {% endfor %}
+  </nav>
+  <form method="get" action="/products" class="flex flex-wrap gap-2 w-full md:w-auto"><input type="hidden" name="view" value="{{ view }}">
+    {% if suppliers|length > 1 %}<select class="in" name="supplier" style="width:auto;max-width:100%" aria-label="Supplier"><option value="">All suppliers</option>{% for id, name in suppliers %}<option value="{{ id }}" {{ 'selected' if supplier == id|string }}>{{ name }}</option>{% endfor %}</select>{% endif %}
+    <input class="in" name="q" value="{{ q }}" placeholder="Search name, SKU, variant" style="flex:1 1 10rem;min-width:0"><button class="btn btn-sm">Search</button></form>
+</div>
+
+{% if prods %}
+<form id="bulk" method="post" action="/products/list-on-store">{{ csrf() }}</form>
+<div class="panel panel-b mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+  <b class="text-sm">List ticked products on:</b>
+  {% for id, name in stores %}<label class="flex items-center gap-2 text-sm"><input type="checkbox" form="bulk" name="store" value="{{ id }}" {{ 'checked' if loop.last or stores|length == 1 }}> {{ name }}</label>{% endfor %}
+  <button class="btn btn-accent btn-sm" form="bulk">List ticked</button>
+  {% if ps.draft %}<button class="btn btn-ghost btn-sm" form="bulk" name="all_drafts" value="1" title="Every draft product">List all {{ ps.draft }} drafts</button>{% endif %}
+  {% if stores|length == 1 %}<a class="text-sm underline" href="/connect">Connect your website</a>{% endif %}
+  <span class="flex flex-wrap items-center gap-2 border-l pl-4" style="border-color:#D8DCD5"><b class="text-sm">Ticked products:</b>
+    <button class="btn btn-ghost btn-sm" form="bulk" formaction="/products/bulk" name="action" value="activate">Put on sale</button>
+    <button class="btn btn-ghost btn-sm" form="bulk" formaction="/products/bulk" name="action" value="deactivate">Take off sale</button>
+    <label class="sr-only" for="bk-pct">Markup percent</label><input class="in" id="bk-pct" form="bulk" name="pct" placeholder="markup %" inputmode="decimal" style="width:6.5rem;min-height:2rem">
+    <button class="btn btn-ghost btn-sm" form="bulk" formaction="/products/bulk" name="action" value="markup">Set price = cost + markup</button></span>
+</div>
+<section class="panel mb-6" aria-label="Product list"><p class="px-4 pt-3 text-xs muted md:hidden">Swipe the table sideways to see every column.</p><div class="overflow-x-auto"><table class="t">
+  <thead><tr><th><span class="sr-only">Pick</span></th><th>Product</th><th>Supplier</th><th class="right">Cost</th><th>Selling price</th><th class="right">Margin</th><th>Min margin %</th><th class="right">Stock</th><th>Options</th><th><span class="sr-only">Save</span></th></tr></thead>
+  <tbody>
+  {% for p in prods %}
+  <tr><form method="post" action="/products/{{ p.id }}" id="pf{{ p.id }}">{{ csrf() }}</form>
+    <td><label class="sr-only" for="pk{{ p.id }}">Pick {{ p.title }}</label><input id="pk{{ p.id }}" type="checkbox" form="bulk" name="pid" value="{{ p.id }}"></td>
+    <td style="min-width:15rem"><div class="flex gap-3 items-center">{% if p.image_url %}<img class="thumb" src="{{ p.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="thumb"></span>{% endif %}
+      <div class="min-w-0"><div class="font-bold">{{ p.title }}</div>
+      <div class="text-xs muted num">{% if p.listing_status == 'draft' %}Not listed yet{% elif not p.store_product_id.startswith('draft-') %}Store ID {{ p.store_product_id }}{% else %}Listed on {{ p.listings|length }} site(s){% endif %}{% if p.sku %}, SKU {{ p.sku }}{% endif %}</div>
+      <div class="flex flex-wrap gap-1 mt-1">
+        <span class="chip chip-{{ p.listing_status }}">{{ 'Listed' if p.listing_status == 'listed' else 'Draft' }}</span>
+        {% for l in p.listings %}<span class="chip chip-{{ 'listed' if l.status == 'listed' else 'error' }}" title="{{ l.error }}">{{ l.store_label or 'Store' }}{{ ': failed' if l.status != 'listed' }}</span>{% endfor %}
+        {% if p.auto_hidden %}<span class="chip chip-bad" title="{{ p.hidden_reason }}">Hidden: {{ p.hidden_reason }}</span>{% elif not p.active %}<span class="chip chip-received">Switched off</span>{% endif %}</div></div></div></td>
+    <td><div class="text-sm">{{ names.get(p.supplier_connection_id, 'Removed connection') if p.supplier_connection_id else 'Built-in supplier' }}</div>
+      <label class="sr-only" for="v{{ p.id }}">Supplier variant ID for {{ p.title }}</label><input class="in" style="min-width:8rem;margin-top:.25rem" id="v{{ p.id }}" form="pf{{ p.id }}" name="supplier_vid" value="{{ p.supplier_vid }}" placeholder="variant id">
+      <details class="mt-1"><summary class="text-xs muted cursor-pointer">Backup supplier{% if p.backup_vid %}: set{% endif %}</summary>
+        <label class="sr-only" for="bc{{ p.id }}">Backup supplier for {{ p.title }}</label><select class="in" style="margin-top:.25rem" id="bc{{ p.id }}" form="pf{{ p.id }}" name="backup_connection">{% for id, name in suppliers %}<option value="{{ id }}" {{ 'selected' if (p.backup_connection_id or 0) == id }}>{{ name }}</option>{% endfor %}</select>
+        <label class="sr-only" for="bv{{ p.id }}">Backup variant id for {{ p.title }}</label><input class="in" style="margin-top:.25rem" id="bv{{ p.id }}" form="pf{{ p.id }}" name="backup_vid" value="{{ p.backup_vid }}" placeholder="backup variant id (empty = none)">
+        <div class="help">If the main supplier runs out or fails, the backup takes over automatically.</div></details></td>
+    <td class="right num">{{ p.supplier_price|money }}</td>
+    <td><label class="sr-only" for="s{{ p.id }}">Selling price for {{ p.title }}</label><input class="in num" style="width:6.5rem" id="s{{ p.id }}" form="pf{{ p.id }}" name="selling_price" value="{{ '%.2f'|format(p.selling_price) }}" inputmode="decimal"></td>
+    <td class="right num"><span class="chip {{ 'chip-ok' if p.margin_pct() >= (p.min_margin_pct if p.min_margin_pct is not none else global_min) else 'chip-bad' }}">{{ p.margin_pct() }}%</span></td>
+    <td><label class="sr-only" for="m{{ p.id }}">Minimum margin for {{ p.title }}</label><input class="in num" style="width:5rem" id="m{{ p.id }}" form="pf{{ p.id }}" name="min_margin_pct" value="{{ p.min_margin_pct if p.min_margin_pct is not none else '' }}" placeholder="{{ global_min }}" inputmode="decimal"></td>
+    <td class="right num">{{ p.stock }}<div class="text-xs muted">{{ ('synced ' ~ (p.last_synced_at|dt)) if p.last_synced_at else 'not synced' }}</div></td>
+    <td><label class="flex items-center gap-2 text-sm"><input type="checkbox" form="pf{{ p.id }}" name="active" value="1" {{ 'checked' if p.active }}> On sale</label>
+        <label class="flex items-center gap-2 text-sm" title="Never change this price automatically"><input type="checkbox" form="pf{{ p.id }}" name="manual_override" value="1" {{ 'checked' if p.manual_override }}> Keep my price</label></td>
+    <td class="right"><button class="btn btn-sm" form="pf{{ p.id }}">Save</button></td></tr>
+  {% endfor %}
+  </tbody></table></div></section>
+{% else %}
+<div class="panel panel-b mb-6"><p class="font-semibold">{{ 'No products match.' if (q or view != 'all' or supplier) else 'No products yet.' }}</p><p class="muted">Import some from a connected supplier, or add one by hand below. Orders for products that are not here are held for you, never guessed.</p>
+  <p class="mt-2"><a class="btn btn-accent btn-sm" href="/catalog">Import from supplier</a></p></div>
+{% endif %}
+
+<section class="panel" aria-labelledby="add-h"><div class="panel-h"><h2 id="add-h" class="display text-lg font-bold">Add a product</h2></div>
+<form method="post" action="/products" class="panel-b grid sm:grid-cols-2 lg:grid-cols-4 gap-4">{{ csrf() }}
+  <div class="sm:col-span-2"><label class="f" for="n-title">Product name</label><input class="in" id="n-title" name="title" required><span class="help" style="display:block">Product ka naam.</span></div>
+  <div><label class="f" for="n-spid">Store product ID</label><input class="in" id="n-spid" name="store_product_id" required><div class="help">The ID in WooCommerce. For variations, use the variation ID.</div></div>
+  <div><label class="f" for="n-sku">SKU (optional)</label><input class="in" id="n-sku" name="sku"><span class="help" style="display:block">Optional internal code.</span></div>
+  <div><label class="f" for="n-vid">Supplier variant ID</label><input class="in" id="n-vid" name="supplier_vid"><div class="help">The CJ variant ID (vid).</div></div>
+  <div><label class="f" for="n-cost">Supplier cost</label><input class="in" id="n-cost" name="supplier_price" value="0" inputmode="decimal"><span class="help" style="display:block">Supplier ko kitne mein padta hai (USD mein).</span></div>
+  <div><label class="f" for="n-sell">Selling price</label><input class="in" id="n-sell" name="selling_price" value="0" inputmode="decimal"><span class="help" style="display:block">Customer ko dikhne wala price (USD).</span></div>
+  <div><label class="f" for="n-stock">Stock</label><input class="in" id="n-stock" name="stock" value="0" inputmode="numeric"><span class="help" style="display:block">Abhi kitna maal available hai. Stock sync ise supplier se apne aap update karta hai.</span></div>
+  <div><label class="f" for="n-min">Min margin % (optional)</label><input class="in" id="n-min" name="min_margin_pct" placeholder="{{ global_min }}" inputmode="decimal"><span class="help" style="display:block">Is product ka minimum profit %. Khali = global.</span></div>
+  <div class="flex items-end"><button class="btn btn-accent">Add product</button></div>
+</form></section>
+{% endblock %}

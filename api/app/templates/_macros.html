@@ -1,0 +1,16 @@
+{% macro badge(status) -%}
+{%- set map = {
+  'received': 'gray', 'validated': 'blue', 'pending_approval': 'amber', 'submitted_to_supplier': 'blue',
+  'supplier_confirmed': 'teal', 'shipped': 'teal', 'delivered': 'green', 'failed_retry': 'amber',
+  'failed_manual': 'red', 'cancelled': 'gray', 'error': 'red', 'warning': 'amber', 'info': 'blue',
+  'pending': 'amber', 'approved': 'green', 'rejected': 'red'} -%}
+<span class="badge b-{{ map.get(status, 'gray') }}">{{ status | replace('_', ' ') }}</span>
+{%- endmacro %}
+
+{% macro csrf_input() -%}<input type="hidden" name="csrf_token" value="{{ csrf }}">{%- endmacro %}
+
+{% macro action(url, label, cls='btn', confirm='') -%}
+<form method="post" action="{{ url }}" class="inline"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+  {{ csrf_input() }}<button class="{{ cls }}" type="submit">{{ label }}</button>
+</form>
+{%- endmacro %}

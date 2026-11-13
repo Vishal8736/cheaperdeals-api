@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Playbook - Cheape Deal{% endblock %}
+{% macro on(label) %}<span class="chip {{ 'chip-ok' if label else 'chip-off' }}">{{ 'ON' if label else 'OFF' }}</span>{% endmacro %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Playbook: dropshipping ki saari strategies</h1>
+  <p class="muted mt-1 max-w-[75ch]">Yahan wo saari strategies hain jo system tumhare liye khud chalata hai. Koi button dabane ki zarurat nahi: upar <b>Start</b> dabate hi ye har ghante apne aap lagti hain. Har strategy margin floor (tumhara minimum profit) ka dhyan rakhti hai, aur jo product tumne haath se price diya hai (manual override) ya jo Strategy agent chala raha hai, use nahi chhoodti.</p></div>
+
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Pehle se chal rahi strategies</h2></div>
+  <ul class="divide-y divide-dashed divide-[#D8DCD5] text-sm">
+    <li class="px-4 py-2.5 flex flex-wrap items-center gap-2"><b>Price arbitrage</b> {{ on(strat_auto) }} <span class="muted flex-1 min-w-[16rem]">Jis desh mein product mehenga bikta hai wahan thoda sasta price lagana. Strategy page par settings.</span><a href="/strategy">Kholo</a></li>
+    <li class="px-4 py-2.5 flex flex-wrap items-center gap-2"><b>Multi-country selling</b> {{ on(multi) }} <span class="muted flex-1 min-w-[16rem]">Har profitable desh ke apne store par, us desh ke apne price par.</span><a href="/strategy">Kholo</a></li>
+    <li class="px-4 py-2.5 flex flex-wrap items-center gap-2"><b>Competitor price watch (eBay)</b> {{ on(feed) }} <span class="muted flex-1 min-w-[16rem]">Market ka asli price khud laana (median).</span><a href="/strategy">Kholo</a></li>
+    <li class="px-4 py-2.5 flex flex-wrap items-center gap-2"><b>Backup supplier failover</b> <span class="chip chip-ok">ON</span> <span class="muted flex-1 min-w-[16rem]">Main supplier ke paas stock na ho to backup supplier se order. Product page par backup set karo.</span><a href="/products">Kholo</a></li>
+    <li class="px-4 py-2.5 flex flex-wrap items-center gap-2"><b>Margin guard</b> <span class="chip chip-ok">ON</span> <span class="muted flex-1 min-w-[16rem]">Loss mein kuch nahi bikta: product apne aap chhup jata hai.</span><a href="/settings">Kholo</a></li>
+    <li class="px-4 py-2.5 flex flex-wrap items-center gap-2"><b>Psychological price ending</b> <span class="chip {{ 'chip-ok' if price_ending else 'chip-off' }}">{{ ('.' ~ price_ending) if price_ending else 'OFF' }}</span> <span class="muted flex-1 min-w-[16rem]">Price .99 par khatam (jaise $19.99). Settings mein.</span><a href="/settings">Kholo</a></li>
+    <li class="px-4 py-2.5 flex flex-wrap items-center gap-2"><b>Fraud / risk check</b> <span class="chip chip-ok">ON</span> <span class="muted flex-1 min-w-[16rem]">Shak wale orders approval mein ruk jate hain.</span><a href="/risk">Kholo</a></li></ul></section>
+
+<form method="post" action="/playbook" class="grid gap-6">{{ csrf() }}
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">1. Tiered markup (cost ke hisaab se alag markup)</h2></div><div class="panel-b grid gap-3">
+  <label class="flex items-start gap-2"><input type="checkbox" name="pb_tier_on" {{ 'checked' if c.pb_tier_on == 'true' }} class="mt-1"><span><b>ON</b> - naye import hue aur cost badalne wale products par lagta hai</span></label>
+  <div><label class="f" for="pb-t">Cost range : markup %</label><input class="in" id="pb-t" name="pb_tiers" value="{{ c.pb_tiers }}">
+    <div class="help">Format: <code>0-20:80, 20-100:50, 100-500:35, 500+:25</code>. Matlab: supplier cost $0 se $20 ke product par 80% markup, $20-$100 par 50%, $100-$500 par 35%, $500 se upar 25%. Sasta maal bechne mein fixed percent kam padta hai, mehenge maal par bada percent customer ko door karta hai: isliye tier. Jo range match na ho wahan Settings wala global markup ({{ markup }}%) lagta hai. Ye purane products ka price ek dum nahi badalta, sirf jab unki cost badle.</div></div></div></section>
+
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">2. Demand pricing (jo tez bik raha hai use mehenga)</h2></div><div class="panel-b grid sm:grid-cols-2 gap-3">
+  <label class="flex items-start gap-2 sm:col-span-2"><input type="checkbox" name="pb_demand_on" {{ 'checked' if c.pb_demand_on == 'true' }} class="mt-1"><span><b>ON</b></span></label>
+  <div><label class="f" for="pb-dd">Kitne din dekhein</label><input class="in" id="pb-dd" name="pb_demand_days" value="{{ c.pb_demand_days }}" inputmode="numeric"><div class="help">Pichhle itne dino ki sales gini jati hain (1 se 90).</div></div>
+  <div><label class="f" for="pb-do">Itne units bikne par badhao</label><input class="in" id="pb-do" name="pb_demand_orders" value="{{ c.pb_demand_orders }}" inputmode="numeric"><div class="help">Itne din mein itne units bik gaye to demand "high" maana jata hai. Har itne aur units par price ek step aur badhta hai.</div></div>
+  <div><label class="f" for="pb-ds">Ek step = kitna % badhao</label><input class="in" id="pb-ds" name="pb_demand_step" value="{{ c.pb_demand_step }}" inputmode="numeric"><div class="help">Chhota rakho (3-5%). Zyada badhane par sales ruk sakti hain.</div></div>
+  <div><label class="f" for="pb-dc">Maximum badhav %</label><input class="in" id="pb-dc" name="pb_demand_cap" value="{{ c.pb_demand_cap }}" inputmode="numeric"><div class="help">Normal price se is se zyada kabhi nahi badhega. Demand kam hote hi price apne aap normal par wapas aa jata hai. Stock 0 ho to price nahi badhta.</div></div></div></section>
+
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">3. Clearance (jo nahi bik raha use sasta)</h2></div><div class="panel-b grid sm:grid-cols-2 gap-3">
+  <label class="flex items-start gap-2 sm:col-span-2"><input type="checkbox" name="pb_clear_on" {{ 'checked' if c.pb_clear_on == 'true' }} class="mt-1"><span><b>ON</b></span></label>
+  <div><label class="f" for="pb-cd">Itne din koi sale nahi</label><input class="in" id="pb-cd" name="pb_clear_days" value="{{ c.pb_clear_days }}" inputmode="numeric"><div class="help">Product itne din se listed ho aur ek bhi order na aaya ho to clearance lagti hai (7 se 365).</div></div>
+  <div><label class="f" for="pb-cs">Kitna % sasta</label><input class="in" id="pb-cs" name="pb_clear_step" value="{{ c.pb_clear_step }}" inputmode="numeric"><div class="help">Price itna kam hota hai, par tumhare minimum margin se neeche kabhi nahi. Sale aate hi price normal par wapas.</div></div></div></section>
+
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">4. Sale calendar (Diwali, Black Friday...)</h2>{% if sale %}<span class="chip chip-ok">Abhi chal rahi: {{ sale[0] }} -{{ sale[3] }}%</span>{% endif %}</div><div class="panel-b grid gap-3">
+  <label class="flex items-start gap-2"><input type="checkbox" name="pb_sale_on" {{ 'checked' if c.pb_sale_on == 'true' }} class="mt-1"><span><b>ON</b></span></label>
+  <div><label class="f" for="pb-s">Sale list (har line ek sale)</label><textarea class="in" id="pb-s" name="pb_sales" style="min-height:6rem;font-family:ui-monospace,monospace" placeholder="Diwali|2026-11-08|2026-11-14|20">{{ c.pb_sales }}</textarea>
+    <div class="help">Format: <code>Naam|shuru-tarikh|aakhri-tarikh|discount%</code>, tarikh <code>YYYY-MM-DD</code>. Jaise <code>Black Friday|2026-11-27|2026-11-30|15</code>. In dino sab products (manual price wale chhodkar) itna sasta ho jate hain aur sale khatam hote hi apne aap normal. Minimum margin se neeche nahi jate. Do sale ek saath ho to bada discount lagta hai.</div></div></div></section>
+
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">5. Sasta supplier chuno</h2></div><div class="panel-b grid sm:grid-cols-2 gap-3">
+  <label class="flex items-start gap-2 sm:col-span-2"><input type="checkbox" name="pb_cheapest_on" {{ 'checked' if c.pb_cheapest_on == 'true' }} class="mt-1"><span><b>ON</b> - sirf un products par jinka backup supplier set hai</span></label>
+  <div class="sm:col-span-2"><label class="f" for="pb-sp">Kam se kam kitna sasta ho (%)</label><input class="in" id="pb-sp" name="pb_cheapest_pct" value="{{ c.pb_cheapest_pct }}" inputmode="numeric"><div class="help">Backup supplier agar itne % se zyada sasta ho aur uske paas stock ho, to wo main supplier ban jata hai (purana main backup ban jata hai). Fayda: tumhara margin badhta hai. Product page par pehle backup supplier set karna padta hai.</div></div></div></section>
+
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">6. Auto-retire (bekaar products band)</h2></div><div class="panel-b grid sm:grid-cols-2 gap-3">
+  <label class="flex items-start gap-2 sm:col-span-2"><input type="checkbox" name="pb_retire_on" {{ 'checked' if c.pb_retire_on == 'true' }} class="mt-1"><span><b>ON</b> (default OFF)</span></label>
+  <div class="sm:col-span-2"><label class="f" for="pb-rd">Itne din ek bhi sale nahi</label><input class="in" id="pb-rd" name="pb_retire_days" value="{{ c.pb_retire_days }}" inputmode="numeric"><div class="help">Itne din mein ek bhi order na aaye to product store se hata (inactive) ho jata hai taaki catalog saaf rahe. Delete nahi hota: Products page se kabhi bhi wapas ON kar sakte ho.</div></div></div></section>
+
+<div class="flex flex-wrap gap-2"><button class="btn btn-accent">Save</button></div></form>
+
+<div class="grid lg:grid-cols-2 gap-6 mt-6">
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Abhi in products par strategy lagi hai</h2></div>
+  {% if touched %}<ul class="divide-y divide-dashed divide-[#D8DCD5] text-sm">{% for p in touched %}<li class="px-4 py-2.5"><b>{{ p.title }}</b><div class="muted">{{ p.playbook_tag }}: {{ p.playbook_base|money }} &rarr; {{ p.selling_price|money }}</div></li>{% endfor %}</ul>
+  {% else %}<p class="panel-b muted">Abhi koi nahi. Jab demand ya sale ya clearance lagegi to yahan dikhega.</p>{% endif %}</section>
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Playbook ne kya kiya</h2></div>
+  {% if events %}<ul class="divide-y divide-dashed divide-[#D8DCD5] text-sm">{% for e in events %}<li class="px-4 py-2.5">{{ e.message }}<div class="text-xs muted">{{ e.created_at|dt }}</div></li>{% endfor %}</ul>
+  {% else %}<p class="panel-b muted">Abhi kuch nahi. {% if not running %}Upar Start dabao.{% endif %}</p>{% endif %}</section></div>
+{% endblock %}

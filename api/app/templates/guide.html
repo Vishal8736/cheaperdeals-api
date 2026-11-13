@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Guide - Cheape Deal{% endblock %}
+{% block livemode %}off{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Cheape Deal ka poora Guide</h1>
+  <p class="muted mt-1 max-w-[75ch]">Ye project kya hai, kaise chalta hai, har page kya karta hai aur kaise use karna hai: sab Hinglish mein. Version {{ version }}.</p></div>
+<nav class="panel mb-6" aria-label="Guide contents"><div class="panel-b"><ol class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm list-decimal pl-5">
+  <li><a href="#what">Ye project kya hai</a></li><li><a href="#flow">Order ka safar</a></li><li><a href="#start">Pehli baar start karna</a></li><li><a href="#pages">Har page ka kaam</a></li>
+  <li><a href="#agents">Agents (robots)</a></li><li><a href="#orders">Orders, approval, rehearsal</a></li><li><a href="#strategy">Strategy: jaha mehenga wahan becho</a></li>
+  <li><a href="#cj">CJ Dropshipping connect karna</a></li><li><a href="#website">Apni website (Vercel + Render)</a></li><li><a href="#pricewatch">Price watch (eBay)</a></li><li><a href="#money">Risk, Returns, Finance</a></li><li><a href="#multi">Multi-country</a></li><li><a href="#security">Security: 2FA aur users</a></li>
+  <li><a href="#system">System, backup, heartbeat, API</a></li><li><a href="#vps">VPS par 24x7</a></li><li><a href="#golive">Live jaane ka checklist</a></li><li><a href="#faq">Problem aaye to (FAQ)</a></li><li><a href="#words">Shabdkosh</a></li><li><a href="#limits">Sach: kya nahi hai</a></li></ol></div></nav>
+
+<div class="grid gap-6 max-w-[88ch]">
+<section class="panel" id="what"><div class="panel-h"><h2 class="display text-lg font-bold">1. Ye project kya hai</h2></div><div class="panel-b grid gap-2">
+  <p><b>Cheape Deal</b> ek free, self-hosted dropshipping automation hai. Tum apna store chalate ho, supplier ka maal customer ko seedha bhejwate ho, aur beech ka kaam (order lena, supplier ko dena, tracking, price, stock) ye khud karta hai.</p>
+  <p>Ye tumhare PC (Windows) par bhi chalta hai aur VPS par 24x7 bhi. Kisi paid service ki zarurat nahi. Tumhara data tumhare apne computer/server par rehta hai.</p>
+  <p>Dropshipping ka matlab: stock tumhare paas nahi hota. Customer order karta hai, tum supplier se wahi maal customer ke address par bhijwate ho. Fayda = bechne ka price minus supplier ka price.</p></div></section>
+
+<section class="panel" id="flow"><div class="panel-h"><h2 class="display text-lg font-bold">2. Ek order ka safar</h2></div><div class="panel-b grid gap-2">
+  <ol class="list-decimal pl-5 grid gap-1"><li>Customer tumhare store par order karta aur paise deta hai. Store ye order Cheape Deal ko bhejta hai (webhook), ya <b>Missed-order sweep</b> agent khud utha leta hai.</li>
+  <li><b>Risk check</b>: fake email, adhura address, freight forwarder, bahut bada order... score banta hai. Zyada score = approval mein ruk jata hai.</li>
+  <li><b>Margin guard</b>: agar profit minimum margin se kam hai to order ruk jata hai (loss mein nahi bechte).</li>
+  <li>Bada order ya risky order: <b>Approvals</b> mein tumhari haan ka intezaar.</li>
+  <li>Order supplier ko jata hai (CJ API se). <b>Rehearsal (DRY-RUN) ON</b> ho to sirf nakli, asli order nahi jata.</li>
+  <li><b>Tracking</b> agent supplier se tracking number laata hai, store par note daalta hai, customer ko email (agar ON) bhejta hai.</li>
+  <li>Delivered hone par order complete. <b>Finance</b> mein uska asli profit dikhta hai.</li></ol></div></section>
+
+<section class="panel" id="start"><div class="panel-h"><h2 class="display text-lg font-bold">3. Pehli baar start karna</h2></div><div class="panel-b grid gap-2">
+  <p><b>Windows:</b> project folder mein <code>run_local.bat</code> par double-click karo. Python 3.11+ chahiye (python.org se, "Add to PATH" tick karke). Pehli baar thoda time lagta hai. Terminal mein URL, username aur password dikhega. Browser khud khulega.</p>
+  <p><b>Login:</b> terminal mein jo username/password dikha wahi use karo. Password bhool gaye to <code>python scripts\local_run.py --reset-password</code>.</p>
+  <p><b>Pehle 10 minute:</b> Website &rarr; Website jodo mein CJ key ek baar daalo &rarr; Catalog se 1-2 product import karo &rarr; Start dabao (Rehearsal mode ON rehta hai, asli order CJ ko nahi jata) &rarr; Agents page par dekho kaam ho raha hai.</p>
+  <p>Dashboard par <b>Setup checklist</b> dikhta hai: ek-ek step jo abhi baaki hai.</p></div></section>
+
+<section class="panel" id="pages"><div class="panel-h"><h2 class="display text-lg font-bold">4. Har page ka kaam</h2></div><div class="panel-b">
+  <dl class="grid gap-2 text-sm">
+  <div><dt><b>Dashboard</b></dt><dd class="muted">Aaj ki halat: orders, alerts, checklist.</dd></div>
+  <div><dt><b>Agents</b></dt><dd class="muted">Live dikhta hai kaun sa robot kya kar raha hai, kab chala, kitna kaam kiya.</dd></div>
+  <div><dt><b>Orders</b></dt><dd class="muted">Saare orders. Ek order kholo: status, tracking, seller ko update, note, shipping cost, invoice, WhatsApp, return.</dd></div>
+  <div><dt><b>Stats</b></dt><dd class="muted">Kaun sa product aur supplier achha chal raha, dead stock.</dd></div>
+  <div><dt><b>Strategy</b></dt><dd class="muted">Dusre desh ka mehenga price dekh kar apna price lagana.</dd></div>
+  <div><dt><b>Approvals</b></dt><dd class="muted">Jo orders tumhari haan maang rahe hain.</dd></div>
+  <div><dt><b>Risk check / Finance / Returns</b></dt><dd class="muted">Fraud rokna, asli profit dekhna, return aur refund track karna.</dd></div>
+  <div><dt><b>Products / Import products</b></dt><dd class="muted">Apne products, bulk actions, aur supplier catalog se import.</dd></div>
+  <div><dt><b>Email</b></dt><dd class="muted">Apna mailbox (Gmail etc.) jodo. Phir tum ya AI kisi bhi customer/company ko apne email se mail bhej sakte ho. AI sirf draft likhta hai, jab tak tum "AI bina review ke bheje" on na karo. Roz ki limit lagi hai.</dd></div>
+  <div><dt><b>Connect</b></dt><dd class="muted">Supplier/store jodna (CJ supplier; Shopify/WooCommerce ya apni website).</dd></div>
+  <div><dt><b>Alerts / System / Users / Settings</b></dt><dd class="muted">Dikkatein, health, backup, team, global rules.</dd></div></dl></div></section>
+
+<section class="panel" id="agents"><div class="panel-h"><h2 class="display text-lg font-bold">5. Agents (robots)</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p>Agent matlab ek chhota robot jo ek kaam baar-baar karta hai. Windows par ye app ke andar chalte hain (n8n nahi chahiye).</p>
+  <ul class="list-disc pl-5 grid gap-1"><li><b>Router</b> (har 20 sec): naye orders ko check karke supplier ko deta hai.</li><li><b>Sweeper</b> (5 min): store mein jo order miss ho gaya use pakadta hai.</li>
+  <li><b>Tracking</b> (2 min): tracking laata hai, customer ko batata hai.</li><li><b>Stock</b> (30 min): supplier ka stock/price check (saare suppliers ek saath), nuksan wala product chhupata hai, backup supplier par switch.</li>
+  <li><b>Reconciler</b> (6 ghante): store aur supplier ke records match karta hai.</li><li><b>Strategist</b> (6 ghante): market price dekh kar price lagata hai.</li>
+  <li><b>Scout</b> (6 ghante + price watch 12 ghante): eBay prices (price watch).</li><li><b>Reporter</b>: roz ki report, backup, heartbeat.</li></ul>
+  <p>Sab ko ek button se rokne ke liye <b>Pause (kill switch)</b> upar hai.</p></div></section>
+
+<section class="panel" id="orders"><div class="panel-h"><h2 class="display text-lg font-bold">6. Orders, approval, rehearsal</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p><b>Rehearsal (DRY-RUN):</b> default ON. Order andar aata hai par supplier ko asli order nahi jata. Jab tak system par bharosa na ho, ON rakho. Settings mein band hota hai.</p>
+  <p><b>Approval threshold:</b> is amount ya usse bade order tumhari haan ke bina nahi jate. 0 = band.</p>
+  <p><b>Minimum margin:</b> isse kam profit wale order block. Daily order cap bhi hai (ek din mein max kitne order).</p>
+  <p><b>Retry:</b> supplier error ho to 2, 4, 8, 16, 32 minute baad dobara. Phir bhi fail = "needs you" mein, Alerts mein dikhega.</p>
+  <p><b>Customer tracking page:</b> har order ka ek link <code>/track/&lt;token&gt;</code> hota hai jo customer ko de sakte ho.</p></div></section>
+
+<section class="panel" id="strategy"><div class="panel-h"><h2 class="display text-lg font-bold">7. Strategy: jaha mehenga wahan becho</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p><b>Example:</b> pankha supplier se $24 ka. US mein shelf price $2000. 25% undercut = $1500. Agent product ko $1500 par lagata hai aur supplier India se ship karta hai. Bich ka kharcha (shipping, duty, VAT, fee) hisaab mein pehle se jud jata hai.</p>
+  <ol class="list-decimal pl-5 grid gap-1"><li><b>Markets</b> tab mein desh ke shipping/duty/tax numbers apne asli numbers se badlo (seed numbers sirf andaaza hain).</li>
+  <li>Exchange rate <b>confirm</b> karo (autopilot unconfirmed rate par kaam nahi karta).</li><li>Product ke liye us desh ka price daalo (haath se, CSV, ya Price watch se).</li>
+  <li><b>Analyse now</b> dabao. Status: viable (faydemand), not viable, needs check (shak wala price), stale (purana), needs rate.</li>
+  <li>Pehle <b>Suggest only</b> mode mein dekho. Bharosa ho to <b>Autopilot</b> ON karo.</li></ol>
+  <p><b>Safety:</b> floor price (isse neeche kabhi nahi), minimum profit %, minimum gap, price kitne din purana chalega, sanity ratio (bahut bada price human check ke liye ruka rehta hai).</p></div></section>
+
+
+<section class="panel" id="cj"><div class="panel-h"><h2 class="display text-lg font-bold">CJ Dropshipping connect karna (2 minute)</h2></div><div class="panel-b grid gap-2 text-sm">
+  <ol class="list-decimal pl-5 grid gap-1">
+  <li>CJ account &rarr; Authorization (API) page &rarr; <b>Generate API Key</b>. Key <code>CJxxxx@api@...</code> jaisi dikhti hai.</li>
+  <li>Cheape Deal &rarr; Connect &rarr; upar CJ wale box mein key paste karo &rarr; "Jodo aur default banao". Koi Authorize nahi, token apne aap renew hota hai.</li>
+  <li>Orders CJ ke <b>wallet balance</b> se pay hote hain: CJ account mein thoda balance rakho. Pehle Rehearsal (DRY-RUN) ON rakho.</li></ol></div></section>
+<section class="panel" id="website"><div class="panel-h"><h2 class="display text-lg font-bold">Apni website: Vercel (front) + Render (backend)</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p>Menu &rarr; <b>Website</b> page par products ka live preview, order payment, aur deploy ke steps hain. Poora guide: <code>docs/WEBSITE_DEPLOY.md</code>.</p></div></section>
+
+<section class="panel" id="pricewatch"><div class="panel-h"><h2 class="display text-lg font-bold">9. Price watch (eBay)</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p>Strategy page par <b>Price watch</b> panel. Free eBay developer keys (developer.ebay.com) daalo, ON karo. Har product ke Strategy page par "search words" do (jaise "table fan 16 inch").</p>
+  <p>Har 12 ghante agent eBay US/UK/DE/AU/CA/FR/IT/ES se <b>5+ listings ka median</b> laata hai (bahut sasta/mehenga kachra hata kar) aur market price bana deta hai.</p>
+  <p><b>Dhyan:</b> ye listed (asking) prices hain, bikne wale (sold) nahi. Galat search words = galat price. Isliye pehle Suggest-only mein check karo.</p></div></section>
+
+<section class="panel" id="money"><div class="panel-h"><h2 class="display text-lg font-bold">10. Risk, Returns, Finance</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p><b>Risk check:</b> 0-100 score. Limit (default 60) ya upar = Approvals mein ruka, wajah likhi hoti hai. Blocked country/email list bhi hai.</p>
+  <p><b>Returns:</b> order page par "Return kholo". Approve &rarr; maal wapas mila &rarr; refund likho (customer ko kitna, supplier ne kitna wapas diya). Refund ka asli paisa tum apne payment provider se hi lautate ho. Yahan sirf record aur profit ka hisaab hota hai.</p>
+  <p><b>Finance:</b> revenue &minus; refund &minus; product cost (order ke time ka) &minus; shipping &minus; payment fee = net profit, mahine ke hisaab se, aur supplier ke paas phansa paisa. Shipping andaaza hota hai jab tak order page par asli kharcha na daalo. Business details bharo to invoice sahi banta hai.</p>
+  <p><b>Invoice:</b> order page &rarr; Invoice &rarr; Print. Ye simple bill hai. GST/export ke rules CA se pucho.</p></div></section>
+
+<section class="panel" id="multi"><div class="panel-h"><h2 class="display text-lg font-bold">11. Multi-country</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p>Strategy mein "Multi-country" ON karo (Autopilot bhi ON). Fir jis desh ka apna store connected hai aur wahan profit hai, product wahan <b>us desh ke apne price</b> par lagta hai. Jo desh ab profitable nahi raha, uska price normal par wapas.</p>
+  <p>Markets tab mein har desh ke saath uska store jodna padta hai.</p></div></section>
+
+<section class="panel" id="security"><div class="panel-h"><h2 class="display text-lg font-bold">12. Security: 2FA aur users</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p><b>2FA:</b> Users page &rarr; Set up 2FA. Authenticator app mein key daalo, code confirm karo. Phir login par code lagega. Phone kho jaye to <code>python scripts\local_run.py --disable-2fa</code>.</p>
+  <p><b>Roles:</b> admin = sab kuch. operator = roz ka kaam, settings/connect/system/users nahi. viewer = sirf dekhna. 2FA abhi sirf admin account par hai.</p>
+  <p>Internet par chalate ho to HTTPS (Caddy ya Cloudflare Tunnel) lagao, strong password rakho, 2FA ON karo.</p></div></section>
+
+<section class="panel" id="system"><div class="panel-h"><h2 class="display text-lg font-bold">13. System, backup, heartbeat, API</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p><b>Health checks:</b> System page har cheez ko OK/Check/Problem dikhata hai aur fix batata hai.</p>
+  <p><b>Backup:</b> roz apne aap, 7 latest rakhe jate hain. "Back up now" se turant. Restore: app band, backup ko <code>cheapedeal.db</code> par copy, app start.</p>
+  <p><b>Heartbeat:</b> healthchecks.io ya UptimeRobot ka free ping URL daalo. App har 5 minute ping karta hai. Server band hua to wo tumhe alert karenge.</p>
+  <p><b>Daily report:</b> roz tay ghante par Telegram par (agar set hai). <b>Customer emails:</b> shipped/delivered par email, SMTP chahiye.</p>
+  <p><b>Read-only API:</b> <code>X-API-Key</code> header se /api/v1/stats, products, orders, opportunities. Ye kuch badal nahi sakta.</p></div></section>
+
+<section class="panel" id="vps"><div class="panel-h"><h2 class="display text-lg font-bold">14. VPS par 24x7</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p>Linux VPS par: <code>run_linux.sh</code> chalao ya <code>deploy/cheapedeal.service</code> (systemd) lagao taaki reboot par bhi chale. Host <code>0.0.0.0</code>, aage HTTPS proxy. Docker + Postgres + n8n ka option bhi hai: <code>DEPLOY.md</code> dekho.</p>
+  <p>Windows par PC band = agents band. Auto-start ke liye <code>scripts\windows_autostart.bat</code>.</p></div></section>
+
+<section class="panel" id="golive"><div class="panel-h"><h2 class="display text-lg font-bold">15. Live jaane ka safe checklist</h2></div><div class="panel-b">
+  <ol class="list-decimal pl-5 grid gap-1 text-sm"><li>Rehearsal mode mein ek test order dekho.</li><li>Asli supplier connect karo, <b>Test connection</b> dabao.</li><li>Ek-do asli product import karo, shipping method set karo.</li>
+  <li>Rehearsal ON rakh kar asli store ka order bhejo, dekho sab sahi jata hai.</li><li>Approval threshold chhota rakho (jaise $50) pehle hafte.</li><li>Risk check, Finance business details, Heartbeat, 2FA set karo.</li>
+  <li>Phir <b>sirf ek asli order</b> ke liye rehearsal band karo. Supplier dashboard mein order check karo.</li><li>Sab theek ho to dheere dheere cap badhao.</li></ol>
+  <p class="help mt-2">Asli account ke saath pehla test tumhe karna hoga: mere paas tumhare supplier/store ke login nahi hain, isliye real-world connectors tumhare account par hi verify honge.</p></div></section>
+
+<section class="panel" id="faq"><div class="panel-h"><h2 class="display text-lg font-bold">16. Problem aaye to</h2></div><div class="panel-b grid gap-2 text-sm">
+  <p><b>Order "pending approval" mein atka:</b> Approvals kholo; wajah likhi hai (bada amount ya risk).</p>
+  <p><b>Order supplier ko nahi gaya:</b> Rehearsal ON to nahi? Pause to ON nahi? Alerts dekho.</p>
+  <p><b>Strategy "needs rate":</b> Exchange rate confirm nahi. Strategy &rarr; Rates.</p>
+  <p><b>Price watch kuch nahi laaya:</b> keys, ON switch, search words, aur 5 se kam listings to nahi.</p>
+  <p><b>Email nahi ja raha:</b> SMTP_* settings ya email-seller connection mein SMTP.</p>
+  <p><b>Login nahi ho raha:</b> 5 galat try = 10 minute block. 2FA code ka phone clock sahi rakho.</p>
+  <p><b>Page khula par 403:</b> tumhara role operator/viewer hai, admin se pucho.</p></div></section>
+
+<section class="panel" id="words"><div class="panel-h"><h2 class="display text-lg font-bold">17. Shabdkosh</h2></div><div class="panel-b"><dl class="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+  <div><dt><b>Margin</b></dt><dd class="muted">Profit / selling price.</dd></div><div><dt><b>Landed cost</b></dt><dd class="muted">Product + shipping + duty: customer tak pahunchne ka total kharcha.</dd></div>
+  <div><dt><b>MOQ</b></dt><dd class="muted">Seller ka minimum order quantity.</dd></div><div><dt><b>Undercut</b></dt><dd class="muted">Market price se itna kam par bechna.</dd></div>
+  <div><dt><b>DRY-RUN</b></dt><dd class="muted">Nakli chalana, asli order nahi.</dd></div><div><dt><b>Webhook</b></dt><dd class="muted">Store ka system ko "naya order aaya" ka signal.</dd></div>
+  <div><dt><b>Chargeback</b></dt><dd class="muted">Customer bank se paisa wapas mangta hai.</dd></div><div><dt><b>2FA</b></dt><dd class="muted">Password ke upar phone ka 6-digit code.</dd></div></dl></div></section>
+
+<section class="panel" id="limits"><div class="panel-h"><h2 class="display text-lg font-bold">18. Sach: kya nahi hai</h2></div><div class="panel-b grid gap-2 text-sm">
+  <ul class="list-disc pl-5 grid gap-1"><li>Asli supplier/store connectors ko maine mocked tests se check kiya hai. Tumhare asli account par pehla test tumhe karna hoga.</li>
+  <li>eBay price feed asking price deta hai, sold price nahi. Aur ye sirf eBay se, Amazon se nahi.</li>
+  <li>WhatsApp sirf "chat kholo" link hai, automatic WhatsApp message nahi.</li><li>UI abhi English + Hinglish mix hai, poora Hindi toggle nahi.</li>
+  <li>AI-based product ya description generation nahi hai.</li><li>Tax/GST/export compliance ka advice nahi: invoice sirf simple bill hai.</li>
+  <li>Agents tab tak chalte hain jab tak PC/server chalu hai.</li></ul></div></section>
+</div>
+{% endblock %}

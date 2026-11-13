@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Orders - Cheape Deal{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+  <h1 class="display text-3xl font-extrabold">Orders</h1>
+  {% if dev_tools %}
+  <div class="flex flex-wrap gap-2">
+    <form method="post" action="/dev/simulate" class="flex gap-2 items-center">{% from "partials/_macros.html" import csrf with context %}{{ csrf() }}
+      <label class="sr-only" for="qty">Quantity</label><input id="qty" class="in" style="width:4.5rem" type="number" name="qty" value="1" min="1"><span class="help" style="display:block">Test order mein kitne units.</span>
+      <label class="sr-only" for="fail">Simulate</label>
+      <select id="fail" name="fail" class="in" style="width:auto"><span class="help" style="display:block">Nakli failure chuno ye dekhne ke liye ki system error ko kaise sambhalta hai.</span><option value="">Works normally</option><option value="429">Supplier says 429</option><option value="timeout">Supplier reply lost</option></select>
+      <button class="btn btn-accent btn-sm">Create test order</button></form>
+    <form method="post" action="/dev/advance">{{ csrf() }}<button class="btn btn-ghost btn-sm">Move supplier forward</button></form>
+  </div>{% endif %}
+</div>
+<form class="flex flex-wrap gap-3 mb-4" hx-get="/orders/table" hx-target="#tbl" hx-trigger="input changed delay:300ms from:#q, change from:#status" hx-push-url="false" onsubmit="return false">
+  <div class="grow" style="min-width:14rem"><label class="sr-only" for="q">Search orders</label><input class="in" id="q" name="q" value="{{ q }}" placeholder="Search by order number, name or email" type="search"></div>
+  <div><label class="sr-only" for="status">Filter by status</label>
+    <select class="in" id="status" name="status" style="width:auto"><option value="">All statuses</option><option value="attention" {{ 'selected' if status=='attention' }}>Needs attention</option>
+    {% for s in states %}<option value="{{ s }}" {{ 'selected' if status==s }}>{{ s|label }}</option>{% endfor %}</select></div>
+</form>
+<div id="tbl" class="panel">{% include "partials/_orders_table.html" %}</div>
+{% endblock %}

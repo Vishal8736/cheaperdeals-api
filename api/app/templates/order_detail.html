@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import chip, csrf with context %}
+{% block title %}Order #{{ o.store_order_number }} - Cheape Deal{% endblock %}
+{% block content %}
+<p class="mb-3"><a class="underline text-sm" href="/orders">Back to orders</a></p>
+<header class="flex flex-wrap items-start justify-between gap-4 mb-5">
+  <div><h1 class="display text-3xl font-extrabold">Order #{{ o.store_order_number }}</h1>
+    <div class="mt-2 flex flex-wrap items-center gap-2">{{ chip(o.status) }}{% if so and so.dry_run %}<span class="chip chip-dry">Rehearsal only</span>{% endif %}<span class="muted text-sm">Received {{ o.created_at|dt }} via {{ o.source }}</span></div></div>
+  <div class="flex flex-wrap gap-2">
+    {% if can.approve %}
+      <form method="post" action="/orders/{{ o.id }}/approve">{{ csrf() }}<button class="btn btn-accent">Approve and send</button></form>
+      <form method="post" action="/orders/{{ o.id }}/reject" onsubmit="return confirm('Reject this order? It will be cancelled. Refund the customer in your store.')">{{ csrf() }}<button class="btn btn-ghost">Reject</button></form>
+    {% endif %}
+    {% if can.retry %}<form method="post" action="/orders/{{ o.id }}/retry">{{ csrf() }}<button class="btn btn-accent">Retry now</button></form>{% endif %}
+    {% if can.redo_live %}<form method="post" action="/orders/{{ o.id }}/redo-live" onsubmit="return confirm('Send this order to the supplier for real?')">{{ csrf() }}<button class="btn btn-accent">Place for real</button></form>{% endif %}
+    {% if can.cancel %}<form method="post" action="/orders/{{ o.id }}/cancel" onsubmit="return confirm('Cancel this order in Cheape Deal?')">{{ csrf() }}<button class="btn btn-ghost">Cancel order</button></form>{% endif %}
+  </div>
+</header>
+
+{% if o.last_error and o.status in ('failed_manual','failed_retry') %}
+<div class="flash flash-error" role="alert"><strong>{{ 'Needs you' if o.status=='failed_manual' else 'Retrying' }}.</strong> {{ o.last_error }}
+  {% if o.status=='failed_retry' and o.next_retry_at %}<div class="font-normal mt-1">Next try at {{ o.next_retry_at|dt }} (attempt {{ o.retry_count }}).</div>{% endif %}</div>
+{% endif %}
+
+{% if can.seller_update %}
+<section class="panel mb-6" aria-labelledby="su-h"><div class="panel-h"><h2 id="su-h" class="display text-lg font-bold">Seller update</h2></div>
+  <form method="post" action="/orders/{{ o.id }}/seller-update" class="panel-b flex flex-wrap items-end gap-3">{{ csrf() }}
+    <div><label class="f" for="su-s">The seller says</label><select class="in" id="su-s" name="stage"><span class="help" style="display:block">Seller ne jo bataya wo chuno (dispatch hua, delay, cancel...). Isse order ka status aur customer ko update sahi jata hai.</span><option value="confirmed">Order confirmed</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option></select></div>
+    <div><label class="f" for="su-t">Tracking number</label><input class="in" id="su-t" name="tracking" placeholder="needed for Shipped"><span class="help" style="display:block">Courier ka tracking number (seller ke email/dashboard se). Shipped status ke liye zaroori. Isi se customer ko tracking link milta hai.</span></div>
+    <div><label class="f" for="su-c">Carrier</label><input class="in" id="su-c" name="carrier" placeholder="Delhivery, DHL..."><span class="help" style="display:block">Courier ka naam (DHL, Delhivery, India Post...). Customer ke tracking page par dikhta hai.</span></div>
+    <button class="btn btn-accent">Save and tell the customer</button>
+    <div class="help w-full">For sellers who work by email or phone. Shipped and Delivered are sent to the customer through your store, exactly once.</div></form></section>
+{% endif %}
+{% if can.resolve %}
+<section class="panel mb-6" style="border:2px solid var(--ink)"><div class="panel-h" style="background:var(--accent)"><h2 class="display text-lg font-bold">Did the supplier get this order?</h2></div>
+  <div class="panel-b grid md:grid-cols-2 gap-6">
+    <form method="post" action="/orders/{{ o.id }}/placed">{{ csrf() }}
+      <p class="mb-2">Open the supplier dashboard and look for order number <strong class="num">{{ so.order_number }}</strong>. If it is there, paste its ID.</p>
+      <label class="f" for="sid">Supplier order ID</label><input class="in mb-2" id="sid" name="supplier_order_id" required placeholder="Order ID from the supplier"><span class="help" style="display:block">Supplier ke system mein is order ki ID. Supplier ke dashboard ya email mein milti hai. Tracking sync isi ID se tracking laata hai.</span>
+      <button class="btn">Yes, it was placed</button></form>
+    <form method="post" action="/orders/{{ o.id }}/not-placed" onsubmit="return confirm('Only continue if you checked and the supplier has NO order {{ so.order_number }}. Otherwise the customer gets two parcels.')">{{ csrf() }}
+      <p class="mb-2">If the order is not there, Cheape Deal can safely send it again.</p><button class="btn btn-ghost">No, send it again</button></form>
+  </div></section>
+{% endif %}
+
+<div class="grid lg:grid-cols-3 gap-6 mb-6">
+  <section class="panel lg:col-span-2" aria-labelledby="it-h">
+    <div class="panel-h"><h2 id="it-h" class="display text-lg font-bold">Items</h2><span class="num font-semibold">{{ o.total|money }} total</span></div>
+    <div class="overflow-x-auto"><table class="t"><thead><tr><th>Product</th><th class="right">Qty</th><th class="right">Paid each</th><th class="right">Supplier cost</th><th class="right">Margin</th></tr></thead><tbody>
+    {% for it, m in lines %}
+      <tr><td>{{ it.title or it.sku }}{% if not it.product %}<div class="text-xs" style="color:var(--bad)">Not in Products yet</div>{% endif %}</td>
+      <td class="right num">{{ it.quantity }}</td><td class="right num">{{ it.unit_price|money }}</td>
+      <td class="right num">{{ it.product.supplier_price|money if it.product else '-' }}</td>
+      <td class="right num">{% if m is not none %}<span class="chip {{ 'chip-ok' if m >= 20 else ('chip-warn' if m >= 0 else 'chip-bad') }}">{{ m }}%</span>{% else %}-{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  </section>
+  <section class="panel" aria-labelledby="ship-h"><div class="panel-h"><h2 id="ship-h" class="display text-lg font-bold">Ship to</h2></div>
+    <address class="panel-b not-italic leading-relaxed">{{ o.customer_name }}<br>{{ o.ship_address1 }}{% if o.ship_address2 %}<br>{{ o.ship_address2 }}{% endif %}<br>{{ o.ship_city }}{% if o.ship_state %}, {{ o.ship_state }}{% endif %} {{ o.ship_zip }}<br>{{ o.ship_country or o.ship_country_code }}
+      <hr class="tear my-3"><span class="muted text-sm">{{ o.customer_email or 'No email' }}<br>{{ o.customer_phone or 'No phone' }}</span></address></section>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6">
+  <section class="panel" aria-labelledby="sup-h"><div class="panel-h"><h2 id="sup-h" class="display text-lg font-bold">Supplier and tracking</h2></div>
+    <div class="panel-b">
+    {% if so %}
+      <dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
+        <dt class="muted">Our order number</dt><dd class="num">{{ so.order_number }}</dd>
+        <dt class="muted">Supplier order ID</dt><dd class="num">{{ so.supplier_order_id or 'Not known yet' }}</dd>
+        <dt class="muted">Supplier status</dt><dd>{{ so.supplier_status or '-' }}</dd></dl>
+    {% else %}<p class="muted">Not sent to the supplier yet.</p>{% endif %}
+    {% if o.tracking %}<hr class="tear my-3"><ul class="space-y-2">{% for t in o.tracking|reverse %}
+      <li><span class="font-semibold">{{ t.status|label }}</span>{% if t.tracking_number %}, tracking <span class="num font-semibold">{{ t.tracking_number }}</span>{% endif %}{% if t.carrier %} via {{ t.carrier }}{% endif %}
+        <div class="text-xs muted">{{ t.created_at|dt }}, customer {{ 'told' if t.customer_notified else 'not told yet' }}</div></li>{% endfor %}</ul>{% endif %}
+    </div></section>
+  <section class="panel" aria-labelledby="fn-h"><div class="panel-h"><h2 id="fn-h" class="display text-lg font-bold">Paisa aur risk</h2></div>
+    <div class="panel-b grid gap-3 text-sm">
+      <div>Risk score: <span class="chip {{ 'chip-bad' if o.risk_score >= 60 else ('chip-warn' if o.risk_score else 'chip-ok') }}">{{ o.risk_score }}</span>{% if o.risk_reasons %}<div class="muted mt-1">{{ o.risk_reasons }}</div>{% endif %}</div>
+      <form method="post" action="/orders/{{ o.id }}/ship-cost" class="flex flex-wrap items-end gap-2">{{ csrf() }}<div><label class="f" for="sc">Shipping cost ($) {{ '(asli)' if o.ship_cost_actual else '(andaaza)' }}</label><input class="in" id="sc" name="cost" value="{{ o.ship_cost_usd }}" inputmode="decimal" style="width:8rem"><span class="help" style="display:block">Is order ko bhejne mein supplier ko asli shipping kitni lagi (USD). Bhar do to Finance ka profit exact hota hai; nahi bharo to andaaza use hota hai.</span></div><button class="btn btn-ghost btn-sm">Save</button></form>
+      <div class="flex flex-wrap gap-2"><a class="btn btn-ghost btn-sm" href="/orders/{{ o.id }}/invoice" target="_blank" rel="noopener">Invoice</a>
+        {% if o.customer_phone %}<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="https://wa.me/{{ o.customer_phone|replace('+','')|replace(' ','')|replace('-','') }}?text={{ ('Hello ' ~ o.customer_name ~ ', about your order ' ~ (o.store_order_number or o.id))|urlencode }}">WhatsApp customer</a>{% endif %}</div>
+      <form method="post" action="/orders/{{ o.id }}/return" class="flex flex-wrap items-end gap-2">{{ csrf() }}<div><label class="f" for="rr">Return kholo (wajah)</label><input class="in" id="rr" name="reason" placeholder="damaged / wrong item..." required><span class="help" style="display:block">Customer return kyu maang raha hai (damaged, galat item, pasand nahi...). Ye Returns page par dikhega.</span></div><button class="btn btn-ghost btn-sm">Open return</button></form></div></section>
+  <section class="panel" aria-labelledby="nt-h"><div class="panel-h"><h2 id="nt-h" class="display text-lg font-bold">Your note</h2></div>
+    <form method="post" action="/orders/{{ o.id }}/note" class="panel-b grid gap-2">{{ csrf() }}<label class="sr-only" for="nt">Internal note</label><textarea class="in" id="nt" name="note" style="min-height:5rem;font-family:inherit" placeholder="Only you see this">{{ o.note }}</textarea><span class="help" style="display:block">Sirf tumhare liye note, customer ko nahi dikhta (jaise "customer ne phone par bataya...").</span><div><button class="btn btn-ghost btn-sm">Save note</button></div>
+    {% if o.public_token %}<div class="help">Customer tracking page (share if you like): <code>{{ request.base_url }}track/{{ o.public_token }}</code></div>{% endif %}</form></section>
+  <section class="panel" aria-labelledby="hist-h"><div class="panel-h"><h2 id="hist-h" class="display text-lg font-bold">History</h2></div>
+    <div class="panel-b"><ol class="timeline">
+      {% for a in audit|reverse %}<li><div class="font-semibold">{{ a.action|replace('_',' ')|capitalize }}{% if a.to_state and a.action != a.to_state %} <span class="muted font-normal">to {{ a.to_state|label }}</span>{% endif %}</div>
+        <div class="text-xs muted">{{ a.created_at|dt('%d %b, %H:%M:%S') }}, {{ a.actor }}</div>{% if a.detail %}<div class="text-sm mt-0.5 break-words">{{ a.detail }}</div>{% endif %}</li>{% endfor %}
+    </ol></div></section>
+</div>
+{% endblock %}

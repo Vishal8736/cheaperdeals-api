@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Returns - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Returns aur refunds</h1>
+  <p class="muted mt-1 max-w-[70ch]">Customer return maange to yahan track karo. Order page par "Return kholo" se naya return banta hai. Refund ka paisa tum apne store ya payment provider se lautate ho; yahan sirf record hota hai taaki Finance ka profit sahi rahe.</p></div>
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Saare returns</h2></div>
+{% if rows %}<div class="overflow-x-auto"><table class="t"><thead><tr><th>Order</th><th>Reason</th><th>Status</th><th class="right">Refund</th><th>Aage kya</th></tr></thead><tbody>
+{% for r in rows %}<tr><td><a href="/orders/{{ r.order_id }}">#{{ r.order.store_order_number or r.order_id }}</a><div class="text-xs muted">{{ r.created_at|dt }}</div></td><td class="max-w-[24ch]">{{ r.reason }}{% if r.note %}<div class="text-xs muted" style="white-space:pre-line">{{ r.note }}</div>{% endif %}</td>
+  <td><span class="chip chip-{{ {'requested':'warn','approved':'working','received':'working','refunded':'ok','rejected':'off'}[r.status] }}">{{ r.status|capitalize }}</span></td>
+  <td class="right num">{% if r.status == 'refunded' %}{{ r.refund_usd|money }}<div class="text-xs muted">supplier ne diya {{ r.supplier_refund_usd|money }}</div>{% else %}-{% endif %}</td>
+  <td>{% if r.status in ('requested','approved','received') %}<div class="grid gap-1.5" style="min-width:12rem">
+    <div class="flex flex-wrap gap-1">{% if r.status == 'requested' %}<form method="post" action="/returns/{{ r.id }}/approved">{{ csrf() }}<button class="btn btn-ghost btn-sm">Approve</button></form>{% endif %}
+      {% if r.status == 'approved' %}<form method="post" action="/returns/{{ r.id }}/received">{{ csrf() }}<button class="btn btn-ghost btn-sm">Maal wapas mila</button></form>{% endif %}
+      {% if r.status in ('requested','approved') %}<form method="post" action="/returns/{{ r.id }}/rejected">{{ csrf() }}<button class="btn btn-ghost btn-sm">Reject</button></form>{% endif %}</div>
+    {% if r.status in ('approved','received') %}<form method="post" action="/returns/{{ r.id }}/refunded" class="flex flex-wrap gap-1">{{ csrf() }}
+      <label class="sr-only" for="rf{{ r.id }}">Customer ko refund</label><input class="in" id="rf{{ r.id }}" name="refund" placeholder="customer refund $" inputmode="decimal" required style="min-height:2rem;width:7.5rem">
+      <label class="sr-only" for="sr{{ r.id }}">Supplier ne wapas diya</label><input class="in" id="sr{{ r.id }}" name="supplier_refund" placeholder="supplier refund $" inputmode="decimal" style="min-height:2rem;width:7.5rem"><button class="btn btn-accent btn-sm">Refund likho</button></form>{% endif %}</div>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="panel-b muted">Koi return nahi.</p>{% endif %}</section>
+{% endblock %}

@@ -1,0 +1,15 @@
+<div class="kpis">
+  <div class="kpi"><span>Orders today</span><b>{{ k.orders_today }}</b></div>
+  <div class="kpi"><span>Revenue today</span><b>{{ k.revenue_today | money }}</b></div>
+  <div class="kpi"><span>Est. gross margin today</span><b>{{ k.margin_today | money }}</b>{% if k.orders_today and k.margin_known < k.orders_today %}<small>{{ k.margin_known }}/{{ k.orders_today }} orders priced</small>{% endif %}</div>
+  <div class="kpi"><span>In flight (confirmed / shipped)</span><b>{{ k.in_flight }}</b></div>
+  <a class="kpi {{ 'warn' if k.pending_approvals }}" href="/approvals"><span>Pending approvals</span><b>{{ k.pending_approvals }}</b></a>
+  <a class="kpi {{ 'bad' if k.failed }}" href="/orders?status=failed_manual"><span>Failed orders</span><b>{{ k.failed }}</b></a>
+  <a class="kpi {{ 'warn' if k.open_alerts }}" href="/alerts"><span>Open alerts</span><b>{{ k.open_alerts }}</b></a>
+</div>
+<div class="runs">
+  <span>Order loop: <b>{{ k.last_process | ago }}</b></span>
+  <span>Tracking sync: <b>{{ k.last_tracking | ago }}</b></span>
+  <span>Stock/price sync: <b>{{ k.last_products | ago }}</b></span>
+  <span>Reconciliation: <b>{{ k.last_reconcile | ago }}</b></span>
+</div>

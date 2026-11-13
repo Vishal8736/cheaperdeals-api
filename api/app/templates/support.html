@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Support - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Customer support</h1>
+  <p class="muted mt-1 max-w-[70ch]">Dukaan se aaye customer ke issue, sawal, return aur feedback yahan aate hain. Jawab do to customer ko tumhare email se chala jata hai (Email page connected ho aur customer emails ON hon), warna wo apne ticket link par dekhta hai.</p></div>
+
+{% if reviews %}<section class="panel mb-6 max-w-[960px]"><div class="panel-h"><h2 class="display text-lg font-bold">Review approve karo ({{ reviews|length }})</h2></div>
+  <div class="panel-b grid gap-3">{% for r in reviews %}<div class="border-b border-[#E6E9E2] pb-3">
+    <div class="text-sm"><b>{{ r.rating }}/5</b> · {{ titles.get(r.product_id, 'product') }} · {{ r.name }}</div>
+    {% if r.title %}<div class="font-semibold">{{ r.title }}</div>{% endif %}<p class="text-sm whitespace-pre-line">{{ r.body }}</p>
+    <form method="post" action="/support/reviews/{{ r.id }}/approve" class="inline">{{ csrf() }}<button class="btn btn-accent btn-sm">Approve</button></form>
+    <form method="post" action="/support/reviews/{{ r.id }}/reject" class="inline">{{ csrf() }}<button class="btn btn-ghost btn-sm">Hata do</button></form></div>{% endfor %}</div></section>{% endif %}
+
+<div class="flex gap-2 mb-3 text-sm">{% for k, lab in (('open','Naye / unanswered'),('answered','Jawab diya'),('closed','Band'),('all','Sab')) %}
+  <a href="/support?show={{ k }}" class="chip {{ 'chip-ok' if show == k else 'chip-dry' }}">{{ lab }}{% if k != 'all' %} ({{ counts[k] }}){% endif %}</a>{% endfor %}</div>
+<div class="grid lg:grid-cols-[320px_1fr] gap-4 max-w-[1100px]">
+  <section class="panel"><div class="panel-b grid gap-1">{% if not tickets %}<p class="muted">Koi ticket nahi.</p>{% endif %}
+    {% for t in tickets %}<a href="/support?show={{ show }}&t={{ t.id }}" class="block rounded p-2 {{ 'bg-[#EEF1EA]' if cur and cur.id == t.id }}">
+      <div class="text-sm"><b>#{{ t.id }}</b> {{ kinds[t.kind] }} <span class="chip {{ 'chip-ok' if t.status == 'answered' else 'chip-dry' }}">{{ t.status }}</span></div>
+      <div class="muted text-xs truncate">{{ t.name or t.email }}{% if t.order_number %} · {{ t.order_number }}{% endif %}</div></a>{% endfor %}</div></section>
+  <section class="panel">{% if not cur %}<p class="panel-b muted">Koi ticket chuno.</p>{% else %}
+    <div class="panel-h"><h2 class="display text-lg font-bold">#{{ cur.id }} · {{ kinds[cur.kind] }}{% if cur.rating %} · {{ cur.rating }}/5{% endif %}</h2>
+      <form method="post" action="/support/{{ cur.id }}/status" class="inline">{{ csrf() }}<input type="hidden" name="status" value="{{ 'open' if cur.status == 'closed' else 'closed' }}"><button class="btn btn-ghost btn-sm">{{ 'Dobara kholo' if cur.status == 'closed' else 'Band karo' }}</button></form></div>
+    <div class="panel-b text-sm"><div class="muted mb-2">{{ cur.name }} · {{ cur.email }}{% if order %} · order <a class="underline" href="{{ '/orders/%d'|format(order.engine_order_id) if order.engine_order_id else '/website' }}">{{ cur.order_number }}</a> ({{ order.status }}, {{ order.total }} {{ order.currency }}){% endif %}</div>
+      {% for m in cur.messages %}<div class="mb-2 p-2 rounded {{ 'bg-[#EEF1EA]' if m.who == 'admin' else 'bg-[#F6F7F4]' }}"><div class="muted text-xs">{{ 'Tum' if m.who == 'admin' else 'Customer' }} · {{ m.created_at.strftime('%d %b %H:%M') }}</div><div class="whitespace-pre-line">{{ m.body }}</div></div>{% endfor %}
+      <form method="post" action="/support/{{ cur.id }}/reply" class="grid gap-2 mt-3">{{ csrf() }}
+        <textarea class="in" name="message" rows="4" placeholder="Jawab likho..." required></textarea><div><button class="btn btn-accent btn-sm">Jawab bhejo</button></div></form></div>{% endif %}</section>
+</div>
+{% endblock %}

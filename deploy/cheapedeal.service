@@ -1,0 +1,21 @@
+# Keeps Cheape Deal running 24x7 on a Linux VPS (no Docker). Install:
+#   sudo cp deploy/cheapedeal.service /etc/systemd/system/cheapedeal.service
+#   sudo nano /etc/systemd/system/cheapedeal.service      (set User and the two paths)
+#   sudo systemctl daemon-reload && sudo systemctl enable --now cheapedeal
+#   sudo journalctl -u cheapedeal -f                      (logs; the first start prints the admin password)
+[Unit]
+Description=Cheape Deal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/cheapedeal
+Environment=CHEAPEDEAL_HOME=/home/ubuntu/CheapeDeal-data
+Environment=CHEAPEDEAL_NO_BROWSER=1
+ExecStart=/home/ubuntu/cheapedeal/run_linux.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

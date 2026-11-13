@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit product' if p else 'Add product' }}{% endblock %}
+{% block content %}
+{% import '_macros.html' as ui %}
+<p><a href="/products">← Products</a></p>
+<h1>{{ 'Edit product' if p else 'Add product' }}</h1>
+<div class="grid2">
+<form method="post" action="/products/save" class="card stack">
+  {{ ui.csrf_input() }}
+  <input type="hidden" name="id" value="{{ p.id if p else '' }}">
+  <label>Name<input name="name" value="{{ p.name if p else '' }}" required><span class="help" style="display:block">Product ka naam jaisa tumhe list mein dikhana hai (sirf yaad rakhne ke liye; customer wala naam store par hota hai).</span></label>
+  <div class="row2">
+    <label>Store product ID<input name="store_product_id" value="{{ p.store_product_id if p else '' }}" placeholder="WooCommerce product id"><span class="help" style="display:block">Store ke andar is product ki ID. WooCommerce/Shopify mein product kholne par URL ya "Product ID" mein dikhti hai. Order aane par system isi ID se product pehchanta hai, isliye bilkul sahi likho.</span></label>
+    <label>Store variation ID<input name="store_variation_id" value="{{ p.store_variation_id if p else '' }}" placeholder="only for variable products"><span class="help" style="display:block">Sirf tab jab product ke variants hain (size/color). Us variant ki store-ID. Simple product ho to khali chhodo.</span></label>
+  </div>
+  <label>SKU<input name="sku" value="{{ p.sku if p else '' }}"><span class="help" style="display:block">Tumhara internal code (optional). Search aur supplier mapping mein kaam aata hai.</span></label>
+  <label>Supplier variant ID (vid)<input name="supplier_vid" value="{{ p.supplier_vid if p else '' }}" placeholder="from the supplier's variant lise / API"><span class="help" style="display:block">Supplier ke yahan is product ya variant ki ID. CJ: product page ya API mein "vid". Galat ID par order supplier tak nahi jayega.</span></label>
+  <div class="row2">
+    <label>Selling price<input name="selling_price" inputmode="decimal" value="{{ p.selling_price if p else '0' }}"><span class="help" style="display:block">Customer ko dikhne wala price (USD mein). Isse supplier cost se zyada rakho. Margin guard is price aur supplier cost ka fark dekhta hai.</span></label>
+    <label>Min margin % (blank = global)<input name="min_margin_pct" inputmode="decimal" value="{{ p.min_margin_pct if p and p.min_margin_pct is not none else '' }}"><span class="help" style="display:block">Is product par minimum profit % (selling price ka). Khali = Settings wala global margin. Isse kam margin par order ruk jata hai aur product chhup jata hai.</span></label>
+  </div>
+  <div class="row2">
+    <label>Shipping method (blank = global)<input name="logistic_name" value="{{ p.logistic_name if p and p.logistic_name else '' }}" placeholder="e.g. CAINIAO_STANDARD"><span class="help" style="display:block">Supplier ko batana kaise bhejna hai (jaise CJPacket Ordinary). Khali = Settings wala default. Naam supplier ki shipping-methods list se copy karo.</span></label>
+    <label>Ships from country (blank = global)<input name="from_country" maxlength="2" value="{{ p.from_country if p and p.from_country else '' }}" placeholder="CN"><span class="help" style="display:block">Maal kis desh ke warehouse se jayega (2-letter code: CN, US, IN...). Khali = default. Shipping time aur cost isse badalta hai.</span></label>
+  </div>
+  <button class="btn primary" type="submit">Save product</button>
+</form>
+{% if p %}
+<div>
+  <section class="card"><h2>Supplier data</h2>
+    <dl class="kv"><dt>Cost</dt><dd>{{ p.supplier_price | money }}</dd><dt>Stock</dt><dd>{{ p.stock if p.stock is not none else '-' }}</dd>
+      <dt>Last sync</dt><dd>{{ p.supplier_synced_at | dt }}</dd><dt>State</dt><dd>{% if p.auto_hidden %}hidden ({{ p.hidden_reason }}){% else %}live{% endif %}</dd></dl>
+    {% if p.auto_hidden %}{{ ui.action('/products/%d/unhide' % p.id, 'Re-enable in store', 'btn', 'Make this product purchasable again?') }}{% endif %}
+  </section>
+  <section class="card"><h2>Price history</h2>
+    {% if hist %}<ul class="list">{% for h in hist %}<li>{{ h.created_at | dt }}: cost {{ h.supplier_price | money }} → sell {{ h.selling_price | money }}<br><small class="muted">{{ h.reason }}</small></li>{% endfor %}</ul>{% else %}<p class="empty">No changes yet.</p>{% endif %}
+  </section>
+</div>
+{% endif %}
+</div>
+{% endblock %}

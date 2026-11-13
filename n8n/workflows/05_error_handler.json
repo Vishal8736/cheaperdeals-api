@@ -1,0 +1,83 @@
+{
+  "name": "Cheape Deal 05 - Error handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/internal/alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Key",
+              "value": "={{ $env.CHEAPEDEAL_INTERNAL_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ workflow: $json.workflow.name, level: 'error', message: String($json.execution.error.message) + ' (last node: ' + $json.execution.lastNodeExecuted + ')' }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call",
+      "name": "Send alert to Cheape Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "content": "**Cheape Deal 05 - Error handler**\n\nOther workflows point to this one (Settings > Error Workflow). When any of them fails, the error lands in Alerts and on Telegram. Leave this workflow *Active*.",
+        "height": 180,
+        "width": 420
+      },
+      "id": "note--20",
+      "name": "Read me",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -260
+      ]
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Send alert to Cheape Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

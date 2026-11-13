@@ -1,0 +1,22 @@
+# Automatic HTTPS (Let's Encrypt). Both domains must already point to this server's IP.
+{$APP_DOMAIN} {
+	encode gzip
+
+	# n8n talks to the API over the private Docker network, so the internet never needs /internal/*
+	@internal path /internal/*
+	respond @internal 404
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+	reverse_proxy api:8000
+}
+
+{$N8N_DOMAIN} {
+	encode gzip
+	reverse_proxy n8n:5678
+}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Email - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Email (apna mailbox)</h1>
+  <p class="muted mt-1 max-w-[70ch]">Apna email yahan connect karo. Phir tum, ya AI, kisi bhi customer ya company ko tumhare apne email se mail bhej sakta hai. Mail "From" mein tumhara hi address dikhega.</p></div>
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">1. Mailbox connect karo</h2>
+  <span class="chip {{ 'chip-ok' if ready else 'chip-dry' }}">{{ 'Connected' if ready else 'Not connected' }}</span></div>
+  <form method="post" action="/email/smtp" class="panel-b grid sm:grid-cols-2 gap-3">{{ csrf() }}
+    <div class="sm:col-span-2 text-sm">Jaldi bharne ke liye: {% for n,h,p,tip in presets %}<button type="button" class="btn btn-ghost btn-sm" data-h="{{ h }}" data-p="{{ p }}" data-tip="{{ tip }}" onclick="document.getElementById('e-h').value=this.dataset.h;document.getElementById('e-p').value=this.dataset.p;document.getElementById('e-tip').textContent=this.dataset.tip">{{ n }}</button> {% endfor %}
+      <p class="help" id="e-tip">Apna provider chuno: server aur port apne aap bhar jayenge, aur password kahan se milega yahan likha aayega.</p></div>
+    <div><label class="f" for="e-h">SMTP server</label><input class="in" id="e-h" name="host" value="{{ smtp.host }}" placeholder="smtp.gmail.com" required><span class="help" style="display:block">Mail bhejne wala server. Provider ki help mein "SMTP server" likha hota hai.</span></div>
+    <div><label class="f" for="e-p">Port</label><input class="in" id="e-p" name="port" value="{{ smtp.port }}" inputmode="numeric"><span class="help" style="display:block">587 (aam) ya 465 (SSL). Dono par connection encrypted rehta hai.</span></div>
+    <div><label class="f" for="e-u">Username</label><input class="in" id="e-u" name="user" value="{{ smtp.user }}" placeholder="tum@gmail.com" autocomplete="off"><span class="help" style="display:block">Zyadatar tumhara poora email address.</span></div>
+    <div><label class="f" for="e-w">Password</label><input class="in" id="e-w" name="password" type="password" autocomplete="new-password" placeholder="{{ 'saved (badalna ho to naya daalo)' if has_pw else '' }}"><span class="help" style="display:block">Gmail mein 16 akshar ka App Password. Ye encrypted save hota hai aur dubara dikhaya nahi jata.{% if smtp.password_unreadable %} <b>Saved password padh nahi paye (SECRET_KEY badli): dobara daalo.</b>{% endif %}</span></div>
+    <div><label class="f" for="e-f">From address</label><input class="in" id="e-f" name="from_addr" value="{{ smtp.from }}" placeholder="khali = username"><span class="help" style="display:block">Customer ko kis address se mail dikhe.</span></div>
+    <div><label class="f" for="e-n">Naam jo dikhe</label><input class="in" id="e-n" name="name" value="{{ smtp.name }}" placeholder="Meri Dukaan"><span class="help" style="display:block">Jaise "Meri Dukaan". Khali = sirf address.</span></div>
+    <div><label class="f" for="e-c">Roz ki limit (manual + AI mails)</label><input class="in" id="e-c" name="cap" value="{{ cap }}" inputmode="numeric"><span class="help" style="display:block">Aaj {{ today }} gaye. 0 = koi limit nahi. Limit spam se bachati hai: mailbox block ho sakta hai agar bahut zyada mail jaye.</span></div>
+    <label class="flex items-start gap-2 self-end"><input type="checkbox" name="ai_email_auto" {{ 'checked' if ai_auto }} class="mt-1"><span>AI bina mere review ke mail bhej sake <span class="help" style="display:block">Off rakho to AI sirf draft likhega aur tum "Bhejo" dabaoge (surakshit). On karo to neeche "AI likhe aur bheje" kaam karega.</span></span></label>
+    <div class="sm:col-span-2 flex flex-wrap gap-2"><button class="btn btn-accent btn-sm">Save mailbox</button>
+      {% if smtp.host %}<button class="btn btn-ghost btn-sm" name="action" value="remove" onclick="return confirm('Mailbox hata dein?')">Mailbox hatao</button>{% endif %}</div>
+    {% if smtp.source == 'env' and smtp.host %}<p class="help sm:col-span-2">Abhi mailbox .env ke SMTP_* se aa raha hai. Yahan save karoge to ye wala use hoga.</p>{% endif %}
+  </form>
+  {% if ready %}<form method="post" action="/email/test" class="panel-b flex flex-wrap gap-2 items-end border-t border-dashed border-[#D8DCD5]">{{ csrf() }}
+    <div class="flex-1 min-w-[14rem]"><label class="f" for="t-to">Test mail kahan bheju</label><input class="in" id="t-to" name="to" placeholder="khali = apne aap ko"></div><button class="btn btn-ghost btn-sm">Test mail bhejo</button></form>{% endif %}
+</section>
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">2. Mail likho / bhejo</h2></div>
+  {% if not ready %}<p class="panel-b muted">Pehle upar mailbox connect karo.</p>{% else %}
+  <form method="post" action="/email/send" class="panel-b grid gap-3" id="mailf">{{ csrf() }}
+    <div><label class="f" for="m-to">Kisko</label><input class="in" id="m-to" name="to" placeholder="customer@gmail.com, company@example.in" required><span class="help" style="display:block">Ek ya zyada address (comma se alag, 20 tak). Customer ho ya koi company, koi bhi.</span></div>
+    <div><label class="f" for="m-ai">AI ko batao kya likhna hai (optional)</label><textarea class="in" id="m-ai" rows="2" placeholder="Jaise: customer ko sorry bolo ki delivery 5 din late hai aur 10% discount do"></textarea>
+      <div class="mt-1 flex flex-wrap gap-2"><button type="button" class="btn btn-ghost btn-sm" id="b-draft" {{ '' if ai_on else 'disabled' }}>AI se draft likhwao</button>
+        {% if ai_auto %}<button type="button" class="btn btn-ghost btn-sm" id="b-auto">AI likhe aur seedha bheje</button>{% endif %}<span class="help" id="m-st">{{ 'Draft sirf form mein aata hai, bhejne se pehle tum padh sakte ho.' if ai_on else 'AI page par model set karo, tab ye button chalega.' }}</span></div></div>
+    <div><label class="f" for="m-s">Subject</label><input class="in" id="m-s" name="subject" required maxlength="200"></div>
+    <div><label class="f" for="m-b">Message</label><textarea class="in" id="m-b" name="body" rows="8" required></textarea></div>
+    <input type="hidden" name="by" id="m-by" value="you">
+    <div><button class="btn btn-accent btn-sm">Bhejo</button></div>
+  </form>{% endif %}
+</section>
+
+<section class="panel max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">Bheje gaye mail</h2></div>
+  <div class="panel-b">{% if logs %}<ul class="divide-y divide-dashed divide-[#D8DCD5] text-sm">{% for l in logs %}<li class="py-2"><span class="chip {{ 'chip-ok' if l.ok else 'chip-bad' }}">{{ 'Sent' if l.ok else 'Failed' }}</span>
+    <b>{{ l.subject }}</b> <span class="muted">to {{ l.to_addr }} · {{ l.by }} · {{ l.created_at|dt }}</span>{% if not l.ok or 'not sent' in l.note %}<div class="muted">{{ l.note }}</div>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="muted text-sm">Abhi tak koi mail nahi bheja.</p>{% endif %}</div></section>
+<script>
+(function(){
+  var csrf=document.body.getAttribute('hx-headers'); try{csrf=JSON.parse(csrf)['X-CSRF-Token'];}catch(e){csrf='';}
+  var st=document.getElementById('m-st');
+  function call(url,cb){
+    var to=document.getElementById('m-to').value, rq=document.getElementById('m-ai').value;
+    if(!to||!rq){st.textContent='Pehle "Kisko" aur "AI ko batao" bharo.';return;}
+    st.textContent='AI likh raha hai...';
+    fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({to:to,request:rq})})
+      .then(function(r){return r.json();}).then(cb).catch(function(){st.textContent='Network error.';});
+  }
+  var d=document.getElementById('b-draft'), a=document.getElementById('b-auto');
+  if(d)d.onclick=function(){call('/email/draft',function(j){
+    if(!j.ok){st.textContent=j.error;return;}
+    document.getElementById('m-s').value=j.subject;document.getElementById('m-b').value=j.body;document.getElementById('m-by').value='ai';
+    st.textContent='Draft ready: padho, badlo, phir "Bhejo" dabao.';});};
+  if(a)a.onclick=function(){if(!confirm('AI mail likhke seedha bhej dega. Pakka?'))return;call('/email/ai-send',function(j){
+    st.textContent=j.ok?('Gaya ('+j.sent+'): '+j.subject+(j.error?' | '+j.error:'')):j.error; if(j.ok)setTimeout(function(){location.reload();},1200);});};
+})();
+</script>
+{% endblock %}

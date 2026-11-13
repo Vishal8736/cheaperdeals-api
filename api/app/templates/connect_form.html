@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}{{ 'Edit' if conn else 'Add' }} {{ t.label }} - Cheape Deal{% endblock %}
+{% block livemode %}off{% endblock %}
+{% block content %}
+<a class="text-sm underline" href="/connect">&larr; Back to Connect</a>
+<div class="mt-2 mb-5">
+  <span class="kindtag">{{ t.kind }}</span>
+  <h1 class="display text-3xl font-extrabold">{{ 'Edit' if conn else 'Connect' }} {{ t.label }}</h1>
+  <p class="muted mt-1 max-w-[62ch]">{{ t.description }}</p>
+</div>
+<form method="post" action="{{ '/connect/' ~ conn.id if conn else '/connect/new' }}" class="panel max-w-[820px]">{{ csrf() }}
+  <input type="hidden" name="type" value="{{ t.key }}">
+  <div class="panel-b grid gap-4">
+    <div><label class="f" for="f-name">Name (just for you)</label><input class="in" id="f-name" name="name" value="{{ values.get('name', t.label) }}" required><span class="help" style="display:block">Is connection ka apna naam (jaise "Mera CJ"), taaki baad mein pehchano.</span></div>
+    {% for f in t.fields %}
+    <div>
+      <label class="f" for="f-{{ f.key }}">{{ f.label }}{% if not f.required %} <span class="muted font-normal">(optional)</span>{% endif %}</label>
+      {% if f.textarea %}
+        <textarea class="in" id="f-{{ f.key }}" name="{{ f.key }}" spellcheck="false" {{ 'required' if f.required }}>{{ values.get(f.key, f.default) }}</textarea>
+      {% elif f.secret %}
+        <input class="in" id="f-{{ f.key }}" name="{{ f.key }}" type="password" autocomplete="off" value="" placeholder="{{ 'Saved. Leave blank to keep it.' if has_secret.get(f.key) else f.placeholder }}" {{ 'required' if f.required and not has_secret.get(f.key) }}>
+      {% else %}
+        <input class="in" id="f-{{ f.key }}" name="{{ f.key }}" value="{{ values.get(f.key, f.default) }}" placeholder="{{ f.placeholder }}" {{ 'required' if f.required }}>
+      {% endif %}
+      {% if f.help %}<div class="help">{{ f.help }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% if not t.fields %}<p class="muted">This connection needs no settings.</p>{% endif %}
+    {% if t.fields|selectattr('key','equalto','spec')|list %}
+    <div class="help"><b>Placeholders:</b> <code>{api_key}</code> your key; <code>{query} {page} {limit}</code> in catalog; <code>{vid}</code> in product_info; <code>{id}</code> in order_info; and for orders <code>{order_number} {name} {email} {phone} {address1} {address2} {city} {state} {zip} {country_code} {lines}</code>. <code>*_path</code> values like <code>data.items.0.id</code> say where to read a field in the reply.</div>
+    {% endif %}
+    {% if t.key == 'custom_site' %}
+    <div class="help">Your site receives <code>POST {add-product path}</code> with JSON <code>{id, title, price, sku, description, image_url, stock, category}</code> and should answer <code>{"id": "...", "url": "..."}</code>. Details: docs/CONNECTORS.md.</div>
+    {% endif %}
+    <div class="flex gap-3"><button class="btn btn-accent">Save and test</button><a class="btn btn-ghost" href="/connect">Cancel</a></div>
+  </div>
+</form>
+{% endblock %}

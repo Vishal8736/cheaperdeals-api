@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Agents - Cheape Deal{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+  <div><h1 class="display text-3xl font-extrabold">Agents</h1>
+    <p class="muted mt-1 max-w-[62ch]">Each agent is one worker in your shop. This page shows what every one of them is doing right now, how much work it finished, and anything that went wrong.</p></div>
+  <form method="post" action="/agents/run-all">{{ csrf() }}<button class="btn btn-accent btn-sm">Run every agent now</button></form>
+</div>
+{% if not scheduler_on %}
+<div class="panel panel-b mb-5 text-sm"><b>Scheduling:</b> this install uses n8n to start the jobs (see docs/DEPLOY.md). If nothing ran yet, press <i>Run every agent now</i> to see them work.</div>
+{% else %}
+<div class="panel panel-b mb-5 text-sm"><b>Scheduling:</b> built-in. Agents run by themselves: orders every 20 s, tracking every 2 min, store sweep every 5 min, stock and prices every 30 min.</div>
+{% endif %}
+<div hx-get="/partials/agents-live?full=1" hx-trigger="every 3s" hx-swap="innerHTML" id="live">{% include "partials/_agents_live.html" %}</div>
+<section class="panel mt-5"><div class="panel-h"><h2 class="display text-lg font-bold">Run one agent by hand</h2></div>
+  <div class="panel-b flex flex-wrap gap-2">
+    {% for job, agent in jobs.items() %}<form method="post" action="/agents/run/{{ job }}">{{ csrf() }}<button class="btn btn-ghost btn-sm">{{ job.replace('_',' ')|capitalize }}</button></form>{% endfor %}
+  </div></section>
+{% endblock %}

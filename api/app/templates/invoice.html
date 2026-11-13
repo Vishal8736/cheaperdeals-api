@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice {{ inv.number }}</title>
+<style>body{font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif;color:#16181A;max-width:46rem;margin:2rem auto;padding:0 16px}h1{font-size:1.6rem;margin:0}table{width:100%;border-collapse:collapse;margin:1.2rem 0}
+th,td{padding:.5rem;border-bottom:1px solid #D8DCD5;text-align:left}th:nth-child(n+2),td:nth-child(n+2){text-align:right}.top{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}.muted{color:#5B625E}
+button{padding:.5rem 1rem;border-radius:4px;border:1px solid #16181A;background:#fff;cursor:pointer}@media print{button{display:none}}</style></head>
+<body><div class="top"><div><h1>{{ inv.business.business_name or 'Invoice' }}</h1><div class="muted" style="white-space:pre-line">{{ inv.business.business_address }}</div>{% if inv.business.business_gstin %}<div class="muted">Tax no: {{ inv.business.business_gstin }}</div>{% endif %}</div>
+<div style="text-align:right"><b>Invoice {{ inv.number }}</b><div class="muted">{{ inv.date.strftime('%d %b %Y') }}</div><button onclick="window.print()">Print</button></div></div>
+<p><b>Bill to</b><br>{{ o.customer_name }}<br>{{ o.ship_address1 }}{% if o.ship_address2 %}, {{ o.ship_address2 }}{% endif %}<br>{{ o.ship_city }} {{ o.ship_zip }} {{ o.ship_country or o.ship_country_code }}</p>
+<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead><tbody>{% for l in inv.lines %}<tr><td>{{ l.title }}</td><td>{{ l.qty }}</td><td>{{ l.unit }}</td><td>{{ l.total }}</td></tr>{% endfor %}</tbody>
+<tfoot><tr><th colspan="3" style="text-align:right">Total ({{ inv.currency }})</th><th>{{ inv.total }}</th></tr></tfoot></table>
+<p class="muted">Thank you for your order.</p></body></html>

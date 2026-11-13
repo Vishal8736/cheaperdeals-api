@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Strategy - Cheape Deal{% endblock %}
+{% block content %}
+{% set labels = {"viable":"Good opportunity","applied":"Live","needs_check":"Check price","needs_rate":"Check rate","stale":"Price too old","not_viable":"Not profitable","no_data":"No data"} %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+  <div><h1 class="display text-3xl font-extrabold">Strategy</h1>
+    <p class="muted mt-1 max-w-[68ch]">Sell each product in the country where it sells for the <b>most</b>, priced a little under the local shelf price, and ship it from your cheap supplier. Example: a fan that costs about $24 in India and sells for $2000 in the USA is listed at $1500 there. All money here is in <b>USD</b>.</p></div>
+  <form method="post" action="/strategy/run" class="flex flex-wrap gap-2 items-center">{{ csrf() }}
+    <button class="btn btn-accent">Analyse now</button>
+    <label class="text-sm flex items-center gap-1.5"><input type="checkbox" name="apply_now" value="1"> also apply good prices now</label></form>
+</div>
+
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+  <div class="tile"><div><div class="v num">{{ stats.analysed }}</div><div class="k">Products analysed</div></div></div>
+  <div class="tile ok"><div><div class="v num">{{ stats.viable }}</div><div class="k">Good opportunities waiting</div></div></div>
+  <div class="tile"><div><div class="v num">{{ stats.applied }}</div><div class="k">Live on a better market</div></div></div>
+  <div class="tile {{ 'warn' if stats.needs else '' }}"><div><div class="v num">{{ stats.needs }}</div><div class="k">Need your check</div></div></div>
+</section>
+
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Opportunities</h2>
+  <span class="text-xs muted">Potential profit per unit across good and live items: <b class="num">{{ stats.potential|money }}</b></span></div>
+  {% if recs %}<div class="overflow-x-auto"><table class="t"><thead><tr><th>Product</th><th>Sell in</th><th class="right">Market price</th><th class="right">Our price</th><th class="right">Profit / unit</th><th>Status</th></tr></thead><tbody>
+    {% for x in recs %}{% set r = x.rec %}<tr>
+      <td><a href="/strategy/product/{{ x.p.id }}"><b>{{ x.p.title }}</b></a><div class="text-xs muted">cost {{ x.p.supplier_price|money }}</div></td>
+      <td>{{ x.m.name if x.m else '-' }}</td>
+      <td class="right num">{{ r.reference_usd|money if r.reference_usd else '-' }}</td>
+      <td class="right num"><b>{{ r.price_usd|money if r.price_usd else '-' }}</b>{% if x.m and r.price_usd and x.m.currency != 'USD' %}<div class="text-xs muted">{{ r.price_local }} {{ x.m.currency }}</div>{% endif %}</td>
+      <td class="right num">{{ r.profit_usd|money if r.profit_usd else '-' }}{% if r.profit_pct %}<div class="text-xs muted">{{ r.profit_pct }}%</div>{% endif %}</td>
+      <td><span class="chip chip-{{ r.status }}">{{ labels[r.status] }}</span><div class="text-xs muted mt-1 max-w-[28ch]">{{ r.reason }}</div></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="panel-b muted">Nothing yet. Add what a product sells for in another country (below), then press <b>Analyse now</b>.</p>{% endif %}</section>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="panel" aria-labelledby="ap-h"><div class="panel-h"><h2 id="ap-h" class="display text-lg font-bold">Autopilot and rules</h2>
+    <span class="chip {{ 'chip-ok' if pr.autopilot else 'chip-off' }}">{{ 'Autopilot ON' if pr.autopilot else 'Suggest only' }}</span></div>
+    <form method="post" action="/strategy/settings" class="panel-b grid gap-3">{{ csrf() }}
+      <label class="flex items-start gap-2"><input type="checkbox" name="strategy_autopilot" {{ 'checked' if pr.autopilot }} class="mt-1"><span><b>Autopilot</b> - change real prices by itself (every 6 hours). Off = it only suggests, you press Apply.</span></label>
+      <label class="flex items-start gap-2"><input type="checkbox" name="strategy_auto_list" {{ 'checked' if pr.auto_list }} class="mt-1"><span>Also list the product on that country's store when one is set.</span></label>
+      <label class="flex items-start gap-2"><input type="checkbox" name="strategy_multi_market" {{ 'checked' if pr.multi_market }} class="mt-1"><span><b>Multi-country</b> - sell in every profitable country that has its own store, each at its own price (not just the single best one).</span></label>
+      <div><label class="f" for="s-mode">Pricing style</label><select class="in" id="s-mode" name="strategy_mode"><span class="help" style="display:block">Suggest only = system sirf batata hai. Autopilot = khud price lagata hai. Start dabane par Autopilot apne aap ON ho jata hai.</span>{% for k, v in modes.items() %}<option value="{{ k }}" {{ 'selected' if pr.mode == k }}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="f" for="s-u">Undercut by (%)</label><input class="in" id="s-u" name="strategy_undercut_pct" inputmode="decimal" value="{{ pr.undercut|num }}"><div class="help">$2000 there, 25% = $1500.</div></div>
+        <div><label class="f" for="s-p">Minimum profit (%)</label><input class="in" id="s-p" name="strategy_min_profit_pct" inputmode="decimal" value="{{ pr.min_profit|num }}"><div class="help">After shipping, duty, VAT and fees. We never price below this.</div></div>
+        <div><label class="f" for="s-g">Minimum gap (%)</label><input class="in" id="s-g" name="strategy_min_gap_pct" inputmode="decimal" value="{{ pr.min_gap|num }}"><div class="help">Must be at least this much cheaper than the market.</div></div>
+        <div><label class="f" for="s-a">Price valid for (days)</label><input class="in" id="s-a" name="strategy_max_age_days" inputmode="numeric" value="{{ pr.max_age_days }}"><div class="help">Older market prices are not acted on.</div></div>
+        <div class="col-span-2"><label class="f" for="s-r">Sanity ratio</label><input class="in" id="s-r" name="strategy_sanity_ratio" inputmode="decimal" value="{{ pr.sanity_ratio|num }}"><div class="help">A scraper-sent market price this many times above our cost waits for you to confirm.</div></div>
+      </div>
+      <div><button class="btn btn-accent">Save</button></div></form></section>
+
+  <section class="panel" aria-labelledby="pf-h"><div class="panel-h"><h2 id="pf-h" class="display text-lg font-bold">Price watch (eBay)</h2>
+    <span class="chip {{ 'chip-ok' if (pf_on and pf_keys) else 'chip-off' }}">{{ 'ON' if (pf_on and pf_keys) else 'OFF' }}</span></div>
+    <form method="post" action="/strategy/pricefeed" class="panel-b grid gap-3">{{ csrf() }}
+      <p class="help">Har 12 ghante eBay se market price khud laata hai (median of 5+ listings). Free keys: developer.ebay.com. Ye <b>asking</b> price hai, sold price nahi. Har product ke Strategy page par search words dene padte hain.</p>
+      <label class="flex items-start gap-2"><input type="checkbox" name="pricefeed_enabled" {{ 'checked' if pf_on }} class="mt-1"><span>Price watch ON</span></label>
+      <div class="grid grid-cols-2 gap-3"><div><label class="f" for="pf-i">eBay App ID</label><input class="in" id="pf-i" name="client_id" autocomplete="off" placeholder="{{ 'saved' if pf_keys else '' }}"><span class="help" style="display:block">eBay developer account ka "App ID (Client ID)". developer.ebay.com par free account > Application Keys mein milta hai.</span></div>
+        <div><label class="f" for="pf-s">eBay Cert ID</label><input class="in" id="pf-s" name="client_secret" type="password" autocomplete="off" placeholder="{{ 'saved' if pf_keys else '' }}"><span class="help" style="display:block">Wahi page par "Cert ID (Client Secret)". Encrypt hokar tumhare server par rehta hai. Kisi ko mat bhejo.</span></div></div>
+      <div class="flex flex-wrap gap-2"><button class="btn btn-accent btn-sm">Save</button><button class="btn btn-ghost btn-sm" formaction="/strategy/pricefeed/run">Run now</button></div></form></section>
+
+  <section class="panel" aria-labelledby="mp-h"><div class="panel-h"><h2 id="mp-h" class="display text-lg font-bold">Add a market price</h2></div>
+    <div class="panel-b grid gap-4">
+      <form method="post" action="/strategy/prices" class="grid gap-3">{{ csrf() }}
+        <div><label class="f" for="mp-p">Product</label><select class="in" id="mp-p" name="product" required><span class="help" style="display:block">Kis product ka market price daal rahe ho.</span><option value="">Choose...</option>{% for p in products %}<option value="{{ p.id }}">{{ p.title }}{% if p.sku %} ({{ p.sku }}){% endif %}</option>{% endfor %}</select></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="f" for="mp-m">Country</label><select class="in" id="mp-m" name="market" required>{% for m in markets if m.enabled %}<option value="{{ m.id }}">{{ m.name }} ({{ m.currency }})</option>{% endfor %}</select></div>
+          <div><label class="f" for="mp-x">Shelf price there</label><input class="in" id="mp-x" name="price" inputmode="decimal" required placeholder="2000"><div class="help">In that country's currency, VAT included.</div></div></div>
+        <div><label class="f" for="mp-u">Link to the listing (optional)</label><input class="in" id="mp-u" name="url" placeholder="https://..."><span class="help" style="display:block">Jis listing se price liya uska link (optional), taaki baad mein verify kar sako.</span></div>
+        <div><button class="btn btn-accent">Save price</button></div></form>
+      <form method="post" action="/strategy/prices/import" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2 border-t border-dashed pt-3" style="border-color:#D8DCD5">{{ csrf() }}
+        <label class="sr-only" for="mp-f">CSV file</label><input id="mp-f" type="file" name="file" accept=".csv" required class="text-sm"><span class="help" style="display:block">CSV file jisme har line mein product, desh aur price ho. Template Strategy page par hai.</span><button class="btn btn-ghost btn-sm">Import CSV</button>
+        <div class="help w-full">Columns: <code>sku</code> (or <code>product_id</code>), <code>market</code> (like US), <code>price</code>, <code>url</code> (optional). Scrapers and n8n can also POST to <code>/internal/strategy/prices</code>.</div></form>
+    </div></section>
+</div>
+
+{% if prices %}<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Market prices you entered</h2></div>
+  <div class="overflow-x-auto"><table class="t"><thead><tr><th>Product</th><th>Country</th><th class="right">Shelf price</th><th>Source</th><th>Checked</th><th></th></tr></thead><tbody>
+  {% for o in prices %}{% set m = mname.get(o.market_id) %}<tr><td><a href="/strategy/product/{{ o.product_id }}">{{ pname.get(o.product_id, '?') }}</a></td><td>{{ m.name if m else '?' }}</td>
+    <td class="right num">{{ o.local_price }} {{ m.currency if m }}</td><td>{{ o.source }}</td><td class="text-sm muted">{{ o.observed_at|dt }}</td>
+    <td><form method="post" action="/strategy/prices/{{ o.id }}/delete">{{ csrf() }}<button class="btn btn-ghost btn-sm" aria-label="Remove this price">Remove</button></form></td></tr>{% endfor %}
+  </tbody></table></div></section>{% endif %}
+
+<section class="panel mb-6" aria-labelledby="mk-h"><div class="panel-h"><h2 id="mk-h" class="display text-lg font-bold">Countries (markets)</h2></div>
+  <p class="panel-b muted text-sm" style="padding-bottom:0">Shipping, duty and VAT are starting estimates. Change them to your real numbers: they decide the minimum safe price.</p>
+  <div class="overflow-x-auto"><table class="t"><thead><tr><th>Code</th><th>Name</th><th>Currency</th><th>Shipping $</th><th>+ per kg $</th><th>Duty %</th><th>VAT %</th><th>Fee %</th><th>Store</th><th>On</th><th></th></tr></thead><tbody>
+  {% for m in markets %}<tr><form method="post" action="/strategy/markets" id="mk{{ m.id }}">{{ csrf() }}<input type="hidden" name="mid" value="{{ m.id }}"></form>
+    <td><input class="in" form="mk{{ m.id }}" name="code" value="{{ m.code }}" aria-label="Code for {{ m.name }}" style="width:4.5rem"></td>
+    <td><input class="in" form="mk{{ m.id }}" name="name" value="{{ m.name }}" aria-label="Name" style="min-width:9rem"></td>
+    <td><input class="in" form="mk{{ m.id }}" name="currency" value="{{ m.currency }}" aria-label="Currency of {{ m.name }}" style="width:4.5rem"></td>
+    <td><input class="in" form="mk{{ m.id }}" name="shipping" value="{{ m.shipping_usd }}" inputmode="decimal" aria-label="Shipping to {{ m.name }}" style="width:5rem"></td>
+    <td><input class="in" form="mk{{ m.id }}" name="per_kg" value="{{ m.ship_per_kg_usd }}" inputmode="decimal" aria-label="Shipping per kg to {{ m.name }}" style="width:5rem"></td>
+    <td><input class="in" form="mk{{ m.id }}" name="duty" value="{{ m.duty_pct }}" inputmode="decimal" aria-label="Duty for {{ m.name }}" style="width:4.5rem"></td>
+    <td><input class="in" form="mk{{ m.id }}" name="tax" value="{{ m.tax_pct }}" inputmode="decimal" aria-label="VAT for {{ m.name }}" style="width:4.5rem"></td>
+    <td><input class="in" form="mk{{ m.id }}" name="fee" value="{{ m.fee_pct }}" inputmode="decimal" aria-label="Fee for {{ m.name }}" style="width:4.5rem"></td>
+    <td><select class="in" form="mk{{ m.id }}" name="store_connection" aria-label="Store for {{ m.name }}" style="min-width:8rem"><option value="">Main store</option>{% for id, name in stores %}<option value="{{ id }}" {{ 'selected' if m.store_connection_id == id }}>{{ name }}</option>{% endfor %}</select></td>
+    <td><input type="checkbox" form="mk{{ m.id }}" name="enabled" {{ 'checked' if m.enabled }} aria-label="{{ m.name }} enabled"></td>
+    <td><button class="btn btn-ghost btn-sm" form="mk{{ m.id }}">Save</button></td></tr>{% endfor %}
+  <tr><form method="post" action="/strategy/markets" id="mk-new">{{ csrf() }}</form>
+    <td><input class="in" form="mk-new" name="code" placeholder="SA" aria-label="New market code" style="width:4.5rem"></td><td><input class="in" form="mk-new" name="name" placeholder="New country" aria-label="New market name"></td>
+    <td><input class="in" form="mk-new" name="currency" placeholder="SAR" aria-label="New market currency" style="width:4.5rem"></td><td><input class="in" form="mk-new" name="shipping" value="12" style="width:5rem" aria-label="Shipping"></td>
+    <td><input class="in" form="mk-new" name="per_kg" value="0" style="width:5rem" aria-label="Per kg"></td><td><input class="in" form="mk-new" name="duty" value="0" style="width:4.5rem" aria-label="Duty"></td><td><input class="in" form="mk-new" name="tax" value="0" style="width:4.5rem" aria-label="VAT"></td>
+    <td><input class="in" form="mk-new" name="fee" value="3" style="width:4.5rem" aria-label="Fee"></td><td></td><td><input type="checkbox" form="mk-new" name="enabled" checked aria-label="Enabled"></td>
+    <td><button class="btn btn-accent btn-sm" form="mk-new">Add</button></td></tr>
+  </tbody></table></div></section>
+
+<section class="panel" aria-labelledby="fx-h"><div class="panel-h"><h2 id="fx-h" class="display text-lg font-bold">Exchange rates (per 1 USD)</h2>
+  <form method="post" action="/strategy/rates/refresh">{{ csrf() }}<button class="btn btn-ghost btn-sm">Refresh from the internet</button></form></div>
+  <div class="panel-b"><p class="muted text-sm mb-3">"Estimate" rates are rough starting values. The agent will not change a live price from an estimate: press Refresh or type the rate yourself to confirm it.</p>
+  <div class="flex flex-wrap gap-2 mb-4">{% for r in rates %}<span class="chip {{ 'chip-warn' if r.source == 'seed' else 'chip-ok' }}" title="{{ 'Estimate' if r.source == 'seed' else r.source }}">{{ r.code }} {{ r.per_usd|num }}{% if r.source == 'seed' %} (estimate){% endif %}</span>{% endfor %}</div>
+  <form method="post" action="/strategy/rates" class="flex flex-wrap items-end gap-2">{{ csrf() }}
+    <div><label class="f" for="fx-c">Currency</label><input class="in" id="fx-c" name="code" placeholder="INR" style="width:6rem" required></div>
+    <div><label class="f" for="fx-v">Units per 1 USD</label><input class="in" id="fx-v" name="per_usd" inputmode="decimal" placeholder="83.2" style="width:9rem" required><span class="help" style="display:block">1 US dollar kitni is currency ke barabar hai (jaise INR ke liye 83.2). Google ya XE par dekh kar daalo. Confirm karne se autopilot is rate par bharosa karta hai.</span></div>
+    <button class="btn btn-accent btn-sm">Save rate</button></form></div></section>
+{% endblock %}

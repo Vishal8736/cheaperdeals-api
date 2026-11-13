@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Connect - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5">
+  <h1 class="display text-3xl font-extrabold">Connect</h1>
+  <form method="post" action="/connect/cj/easy" class="panel panel-b mt-3 max-w-[760px] grid gap-2">{{ csrf() }}
+    <b>Sabse aasaan supplier: CJ Dropshipping (sirf API key, Authorize nahi)</b>
+    <div class="flex flex-wrap gap-2 items-end"><div class="flex-1 min-w-[16rem]"><label class="f" for="cj-k">CJ API key</label><input class="in" id="cj-k" name="api_key" type="password" autocomplete="off" required placeholder="CJUserNum@api@..."></div><button class="btn btn-accent btn-sm">Jodo aur default banao</button></div>
+    <span class="help">CJ account > Authorization (API) page se "Generate API Key" karke copy karo. Bas itna. Token apne aap lega aur renew karega.</span></form>
+  <p class="muted mt-1 max-w-[66ch]">Plug in any company you buy from (a <b>supplier</b>) and any website you sell on (a <b>store</b>). Most need only an API key. Keys are stored encrypted.</p>
+</div>
+
+<section class="panel mb-6"><div class="panel-b flex flex-wrap items-center gap-3"><span class="kindtag w-16">AI</span><div class="flex-1 min-w-[10rem]"><b>AI model (Base URL + API key)</b><div class="text-xs muted">OpenAI, OpenRouter, Groq, Ollama, Claude... koi bhi. "Models fetch karo" se saare models ki list aati hai, Auto mode mein sab use hote hain.</div></div><a class="btn btn-accent btn-sm" href="/assistant">AI model jodo</a></div></section>
+
+<section class="panel mb-6" aria-labelledby="c-h">
+  <div class="panel-h"><h2 id="c-h" class="display text-lg font-bold">Your connections</h2></div>
+  <ul class="divide-y divide-dashed divide-[#D8DCD5]">
+    <li class="px-4 py-3 flex flex-wrap items-center gap-3"><span class="kindtag w-16">Supplier</span><div class="flex-1 min-w-[10rem]"><b>Built-in supplier</b> <span class="muted text-sm">({{ builtin_supplier }}, set in the server settings file)</span></div><span class="chip chip-connected">Always on</span></li>
+    <li class="px-4 py-3 flex flex-wrap items-center gap-3"><span class="kindtag w-16">Store</span><div class="flex-1 min-w-[10rem]"><b>Built-in store</b> <span class="muted text-sm">({{ builtin_store }}, set in the server settings file)</span></div><span class="chip chip-connected">Always on</span></li>
+    {% for c in conns %}
+    <li class="px-4 py-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="kindtag w-16">{{ c.kind }}</span>
+        <div class="flex-1 min-w-[10rem]"><b>{{ c.name }}</b> {% if c.is_default %}<span class="chip chip-info" style="background:var(--accent-soft);color:var(--accent-deep)">Default supplier</span>{% endif %}
+          <div class="text-xs muted">{{ (mgr.type(c.type).label if mgr.type(c.type) else c.type) }} &middot; {{ usage[c.id] }} {{ 'product(s)' if c.kind=='supplier' else 'listing(s)' }}{% if c.last_tested_at %} &middot; tested {{ c.last_tested_at|dt }}{% endif %}</div></div>
+        {% if not c.enabled %}<span class="chip chip-off">Off</span>{% elif c.last_status == 'ok' %}<span class="chip chip-connected">Connected</span>{% elif c.last_status == 'error' %}<span class="chip chip-error">Failed</span>{% else %}<span class="chip chip-untested">Not tested</span>{% endif %}
+      </div>
+      {% if c.last_error %}<div class="text-sm mt-2" style="color:var(--bad)">{{ c.last_error }}</div>{% endif %}
+      {% if c.id in bad_secrets %}<div class="text-sm mt-2" style="color:var(--bad)">Saved keys cannot be read any more (the SECRET_KEY changed). Open Edit and enter them again.</div>{% endif %}
+      {% if c.kind == 'store' %}<div class="text-xs muted mt-2">Order webhook for this site: <code class="num">{{ base }}/webhooks/store/{{ c.id }}</code></div>{% endif %}
+      <div class="flex flex-wrap gap-2 mt-2.5 pl-0 md:pl-[4.75rem]">
+        <form method="post" action="/connect/{{ c.id }}/test">{{ csrf() }}<button class="btn btn-sm btn-accent">Test</button></form>
+        <a class="btn btn-sm btn-ghost" href="/connect/{{ c.id }}/edit">Edit</a>
+        {% if c.kind == 'supplier' %}<form method="post" action="/connect/{{ c.id }}/default">{{ csrf() }}<button class="btn btn-sm btn-ghost" title="Used for products that have no supplier chosen">{{ 'Remove default' if c.is_default else 'Make default' }}</button></form>{% endif %}
+        <form method="post" action="/connect/{{ c.id }}/toggle">{{ csrf() }}<button class="btn btn-sm btn-ghost">{{ 'Switch off' if c.enabled else 'Switch on' }}</button></form>
+        <form method="post" action="/connect/{{ c.id }}/delete" onsubmit="return confirm('Remove this connection?')">{{ csrf() }}<button class="btn btn-sm btn-ghost" style="color:var(--bad)">Remove</button></form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="panel" aria-labelledby="as-h"><div class="panel-h"><h2 id="as-h" class="display text-lg font-bold">Add a supplier</h2><span class="text-xs muted">a company you buy from</span></div>
+    <div class="panel-b grid gap-2.5">
+      {% for t in types_supplier %}<a class="opt-card" href="/connect/new?type={{ t.key }}"><div class="t">{{ t.label }} {% if t.source == 'file' %}<span class="chip chip-draft">connector file</span>{% endif %}</div><div class="d">{{ t.description }}</div></a>{% endfor %}
+    </div></section>
+  <section class="panel" aria-labelledby="ast-h"><div class="panel-h"><h2 id="ast-h" class="display text-lg font-bold">Add a store or website</h2><span class="text-xs muted">where you sell</span></div>
+    <div class="panel-b grid gap-2.5">
+      {% for t in types_store %}<a class="opt-card" href="/connect/new?type={{ t.key }}"><div class="t">{{ t.label }} {% if t.source == 'file' %}<span class="chip chip-draft">connector file</span>{% endif %}</div><div class="d">{{ t.description }}</div></a>{% endfor %}
+    </div></section>
+</div>
+
+<section class="panel mb-6" aria-labelledby="f-h">
+  <div class="panel-h"><h2 id="f-h" class="display text-lg font-bold">Connector files (for SDKs and special APIs)</h2></div>
+  <div class="panel-b grid gap-4">
+    <p class="text-sm">If a company gives you an <b>SDK</b> or its API does not fit the forms above, write a small Python file once. Download a template, fill in a few methods, then put it in this folder (or upload it here) and it shows up above as a new connection type.</p>
+    <div class="flex flex-wrap gap-2">
+      <a class="btn btn-sm btn-accent" href="/connect/template/supplier.py">Download supplier template</a>
+      <a class="btn btn-sm btn-ghost" href="/connect/template/store.py">Download website/store template</a>
+      <form method="post" action="/connect/reload">{{ csrf() }}<button class="btn btn-sm btn-ghost">Reload connector files</button></form>
+    </div>
+    <div class="text-sm">Folder: <code class="num break-all">{{ folder }}</code></div>
+    {% if file_errors %}<div class="flash flash-error" style="margin:0">{% for f, e in file_errors.items() %}<div><b>{{ f }}</b>: {{ e }}</div>{% endfor %}</div>{% endif %}
+    {% if can_upload %}
+    <form method="post" action="/connect/upload" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">{{ csrf() }}
+      <div><label class="f" for="cf">Upload a connector file (.py)</label><input class="in" id="cf" type="file" name="file" accept=".py" required><span class="help" style="display:block">Connector ki .py file jo tumhare liye kisi aur company ke liye likhi gayi ho. Pehle usse padh lo: ye tumhare server par chalti hai.</span></div>
+      <button class="btn btn-sm">Upload</button>
+      <div class="help w-full">A connector file is code that runs on this computer. Only upload files you wrote or trust.</div>
+    </form>
+    {% else %}<p class="help">Uploading is switched off here. Copy the file into the folder above, then press Reload. (Switch on with ALLOW_CONNECTOR_UPLOAD=true.)</p>{% endif %}
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="fd-h">
+  <div class="panel-h"><h2 id="fd-h" class="display text-lg font-bold">Product feed for your website</h2></div>
+  <div class="panel-b grid gap-3 text-sm">
+    <p>Prefer your site to <b>pull</b> the products instead of us pushing? Read this address (JSON). It lists every product that is listed, switched on and in stock.</p>
+    <div class="codebox">{{ feed_url }}</div>
+    <p class="help">Keep it private. Anyone with this address can read your product list.</p>
+  </div>
+</section>
+{% endblock %}

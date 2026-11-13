@@ -1,0 +1,28 @@
+# Render Blueprint: backend (FastAPI) on the free web plan. The database must be EXTERNAL (free Postgres from Neon or Supabase),
+# because Render's free web service has no disk that survives a restart.
+services:
+  - type: web
+    name: cheapedeal
+    runtime: python
+    plan: free
+    rootDir: api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --no-access-log --proxy-headers --forwarded-allow-ips=*
+    healthCheckPath: /ping
+    envVars:
+      - { key: PYTHON_VERSION, value: "3.12.7" }
+      - { key: APP_ENV, value: production }
+      - { key: SECRET_KEY, generateValue: true }
+      - { key: INTERNAL_API_KEY, generateValue: true }
+      - { key: ADMIN_USERNAME, value: admin }
+      - { key: ADMIN_PASSWORD, sync: false }        # you type it in the Render dashboard
+      - { key: DATABASE_URL, sync: false }          # postgresql+psycopg://... from Neon / Supabase
+      - { key: CJ_API_KEY, sync: false }            # your CJ Dropshipping API key
+      - { key: PUBLIC_URL, sync: false }            # https://<your-service>.onrender.com
+      - { key: SHOP_ORIGINS, sync: false }          # optional: https://<your-site>.vercel.app (only if the site calls Render directly)
+      - { key: INTERNAL_SCHEDULER, value: "true" }  # agents run inside the app: no n8n needed
+      - { key: ENABLE_DEV_TOOLS, value: "false" }
+      - { key: DRY_RUN, value: "true" }             # turn OFF on the Playbook page only when you are ready for real orders
+      - { key: SUPPLIER_BACKEND, value: mock }
+      - { key: STORE_BACKEND, value: mock }
+      - { key: APP_TIMEZONE, value: Asia/Kolkata }

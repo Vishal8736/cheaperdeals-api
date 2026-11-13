@@ -1,0 +1,30 @@
+{# Live agent cards + activity feed. Polled every 3s by the pages that include it. full=1 shows what each agent does. #}
+{% set labels = {"working":"Working now","idle":"Ready","waiting":"Not run yet","error":"Last run failed","stuck":"Looks stuck"} %}
+<div class="flex flex-wrap items-center gap-x-6 gap-y-1 mb-3 text-sm">
+  <span class="live-tag">LIVE</span>
+  <span><b class="num">{{ snap.working }}</b> working now</span>
+  <span><b class="num">{{ snap.total_runs }}</b> runs in 24h</span>
+  <span><b class="num">{{ snap.total_processed }}</b> items handled in 24h</span>
+  {% if snap.errors %}<span class="chip chip-bad">{{ snap.errors }} agent{{ 's' if snap.errors != 1 }} need a look</span>{% endif %}
+</div>
+<div class="agent-grid mb-5">
+  {% for c in snap.cards %}
+  <div class="agent {{ c.state }}">
+    <div class="nm"><span>{{ c.name }}</span><span class="flex items-center gap-1.5"><span class="pulse"></span><span class="text-xs font-semibold muted">{{ labels[c.state] }}</span></span></div>
+    {% if full %}<div class="text-xs muted mt-1">{{ c.does }}</div>{% endif %}
+    <div class="msg">{% if c.state == 'working' %}Working...{% elif c.message %}{{ c.message|truncate(110) }}{% else %}Nothing to report yet.{% endif %}</div>
+    <div class="st"><span><b>{{ c.runs }}</b> runs</span><span><b>{{ c.processed }}</b> handled</span>{% if c.errors %}<span style="color:var(--bad)"><b>{{ c.errors }}</b> errors</span>{% endif %}<span class="ml-auto">{{ c.when|dt('%H:%M:%S') if c.when else '-' }}</span></div>
+  </div>
+  {% endfor %}
+</div>
+<div class="panel">
+  <div class="panel-h"><h3 class="display text-lg font-bold">What is happening</h3><span class="text-xs muted">newest first, updates every 3 seconds</span></div>
+  {% if snap.feed %}
+  <ul class="feed">
+    {% for e in snap.feed %}
+    <li class="lv-{{ e.level }}"><span class="t">{{ e.created_at|dt('%H:%M:%S') }}</span><span class="who">{{ snap.names.get(e.agent, e.agent) }}</span>
+      <span class="min-w-0 break-words">{{ e.message }}{% if e.order_id %} <a class="underline" href="/orders/{{ e.order_id }}">open</a>{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="panel-b muted">No activity yet. When an order arrives, a product is imported or a job runs, it shows up here instantly.</p>{% endif %}
+</div>

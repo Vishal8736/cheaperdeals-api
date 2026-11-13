@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Platforms - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Platforms: kaun kya deta hai</h1>
+  <p class="muted mt-1 max-w-[72ch]">Har platform ka saaf haal: free key milti hai ya nahi, aur ye project us se kya kar sakta hai. Jo cheez abhi possible nahi hai wo bhi wajah ke saath likhi hai, kuch nakli nahi.</p></div>
+{% for group, rows in catalog %}
+<section class="panel mb-6 max-w-[980px]"><div class="panel-h"><h2 class="display text-lg font-bold">{{ group }}</h2></div>
+  <div class="panel-b overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left"><th class="pr-3 pb-2">Naam</th><th class="pr-3 pb-2">Kya hai</th><th class="pr-3 pb-2">Free key?</th><th class="pr-3 pb-2">Haal</th></tr></thead><tbody>
+  {% for name, what, free, st, note in rows %}<tr class="align-top border-t border-dashed border-[#D8DCD5]"><td class="pr-3 py-2"><b>{{ name }}</b></td><td class="pr-3 py-2">{{ what }}</td><td class="pr-3 py-2">{{ free }}</td>
+    <td class="py-2"><span class="chip {{ {'ready':'chip-ok','research':'chip-ok','later':'chip-dry','no':'chip-off'}[st] }}">{{ {'ready':'chalu','research':'research chalu','later':'abhi nahi bana','no':'possible nahi'}[st] }}</span><div class="help">{{ note }}</div></td></tr>{% endfor %}
+  </tbody></table></div></section>{% endfor %}
+
+<section class="panel mb-6 max-w-[980px]"><div class="panel-h"><h2 class="display text-lg font-bold">Flipkart price check</h2><span class="chip {{ 'chip-ok' if fk_on else 'chip-dry' }}">{{ 'key saved' if fk_on else 'key nahi' }}</span></div>
+  <form method="post" action="/platforms/flipkart" class="panel-b grid sm:grid-cols-2 gap-3">{{ csrf() }}
+    <div><label class="f" for="fa">Affiliate Tracking ID</label><input class="in" id="fa" name="affid" value="{{ fk_id }}"><span class="help" style="display:block">affiliate.flipkart.com par affiliate ban kar milta hai.</span></div>
+    <div><label class="f" for="ft">Affiliate API token</label><input class="in" id="ft" name="token" type="password" autocomplete="new-password" placeholder="{{ 'saved (badalna ho to naya daalo)' if fk_on else '' }}"><span class="help" style="display:block">affiliate.flipkart.com/api/api-token. Encrypted save hota hai.</span></div>
+    <div class="sm:col-span-2"><button class="btn btn-accent btn-sm">Save karo</button></div></form>
+  {% if fk_on %}<form method="get" action="/platforms" class="panel-b border-t border-dashed border-[#D8DCD5] flex flex-wrap gap-2 items-end"><div class="grow"><label class="f" for="pq">Product ka naam</label><input class="in" id="pq" name="q" value="{{ q }}" placeholder="jaise: neck massager"></div><button class="btn btn-accent btn-sm">Flipkart vs CJ dekho</button></form>{% endif %}
+  {% if err %}<div class="panel-b text-sm" style="color:var(--bad)">{{ err }}</div>{% endif %}
+  {% if res %}<div class="panel-b grid sm:grid-cols-2 gap-4 text-sm">
+    <div><b>Flipkart (INR)</b>{% if not res.flipkart %}<p class="help">Kuch nahi mila.</p>{% endif %}<ul class="grid gap-2 mt-1">{% for i in res.flipkart %}<li><a class="underline" href="{{ i.url }}" target="_blank" rel="noopener">{{ i.title }}</a><br>{{ i.currency }} {{ i.price }}{% if i.mrp %} <span class="muted">(MRP {{ i.mrp }})</span>{% endif %} {% if not i.in_stock %}<span class="chip chip-warn">stock nahi</span>{% endif %}</li>{% endfor %}</ul></div>
+    <div><b>Tumhara supplier (CJ)</b>{% if res.error %}<p class="help">{{ res.error }}</p>{% endif %}{% if not res.supplier and not res.error %}<p class="help">Kuch nahi mila.</p>{% endif %}<ul class="grid gap-2 mt-1">{% for i in res.supplier %}<li>{{ i.title }}<br>${{ i.cost_usd }}{% if i.cost_inr %} &asymp; INR {{ i.cost_inr }}{% endif %}</li>{% endfor %}</ul></div>
+    <p class="help sm:col-span-2">Ye sirf andaza hai: alag-alag product milte hain, shipping aur customs jodna padega. Flipkart ki search API 10 results tak deti hai aur docs ke mutabik aage deprecate hogi.</p></div>{% endif %}
+</section>
+{% endblock %}

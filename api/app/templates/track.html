@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Track your order</title>
+<style>:root{--bg:#F2F2EF;--ink:#16181A;--mut:#5B625E;--acc:#6A4CFF;--ok:#12794A;--line:#D8DCD5;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#14161A;--ink:#EDEEF0;--mut:#9AA0A8;--card:#1D2026;--line:#2C3037;--acc:#9B86FF;--ok:#45C98B}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,Segoe UI,Roboto,sans-serif}main{max-width:34rem;margin:0 auto;padding:1.5rem 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.25rem}h1{font-size:1.5rem;margin:.2rem 0 1rem}
+ol{list-style:none;margin:1rem 0 0;padding:0}li{display:flex;gap:.75rem;align-items:center;padding:.55rem 0;color:var(--mut)}li b{width:1.6rem;height:1.6rem;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line);font-size:.8rem}
+li.done{color:var(--ink)}li.done b{background:var(--ok);border-color:var(--ok);color:#fff}li.now b{border-color:var(--acc);color:var(--acc)}.num{font-variant-numeric:tabular-nums}</style></head>
+<body><main><h1>Order {{ o.store_order_number or ('#' ~ o.id) }}</h1>
+<div class="card">{% if cancelled %}<p><b>This order was cancelled.</b> If you did not expect this, please contact the shop.</p>{% else %}
+<p>Status: <b>{{ steps[cur][1] if cur >= 0 else 'Being checked' }}</b></p>
+{% if last %}<p>Tracking number: <b class="num">{{ last.tracking_number }}</b>{% if last.carrier %} with {{ last.carrier }}{% endif %}</p>{% endif %}
+<ol>{% for key, label in steps %}<li class="{{ 'done' if loop.index0 < cur or (loop.index0 == cur and key == 'delivered') else ('now' if loop.index0 == cur else '') }}"><b aria-hidden="true">{{ '&#10003;'|safe if (loop.index0 < cur or (loop.index0 == cur and key == 'delivered')) else loop.index }}</b>{{ label }}</li>{% endfor %}</ol>{% endif %}</div>
+<p style="color:var(--mut);font-size:.85rem;margin-top:1rem">Updated {{ o.updated_at.strftime('%d %b %Y, %H:%M') }} UTC</p></main></body></html>

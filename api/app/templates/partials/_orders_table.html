@@ -1,0 +1,24 @@
+{% from "partials/_macros.html" import chip %}
+{% if rows %}
+<div class="overflow-x-auto"><table class="t">
+  <thead><tr><th>Order</th><th class="hidden sm:table-cell">Customer</th><th>Status</th><th class="right">Total</th><th class="hidden md:table-cell">Received</th><th class="hidden sm:table-cell"><span class="sr-only">Open</span></th></tr></thead>
+  <tbody>
+  {% for o in rows %}
+    <tr><td><a class="font-bold underline num" href="/orders/{{ o.id }}">#{{ o.store_order_number }}</a><div class="text-xs muted sm:hidden">{{ o.customer_name }}</div></td>
+    <td class="hidden sm:table-cell">{{ o.customer_name or '-' }}<div class="text-xs muted">{{ o.customer_email }}</div></td>
+    <td>{{ chip(o.status) }}{% if o.supplier_order and o.supplier_order.dry_run %} <span class="chip chip-dry">Rehearsal</span>{% endif %}
+      {% if o.last_error and o.status in ('failed_manual','failed_retry') %}<div class="text-xs muted mt-1" style="max-width:26rem">{{ o.last_error[:110] }}{{ '…' if o.last_error|length > 110 }}</div>{% endif %}</td>
+    <td class="right num">{{ o.total|money }}</td><td class="muted hidden md:table-cell">{{ o.created_at|dt }}</td>
+    <td class="right hidden sm:table-cell"><a class="btn btn-ghost btn-sm" href="/orders/{{ o.id }}">Open</a></td></tr>
+  {% endfor %}
+  </tbody></table></div>
+<div class="flex items-center justify-between px-4 py-3 border-t border-dashed border-[#D8DCD5]">
+  <span class="muted text-sm num">{{ (p-1)*size + 1 }} to {{ (p-1)*size + rows|length }} of {{ total }}</span>
+  <div class="flex gap-2">
+    {% if p > 1 %}<a class="btn btn-ghost btn-sm" href="/orders?q={{ q|urlencode }}&status={{ status }}&p={{ p-1 }}">Previous</a>{% endif %}
+    {% if p*size < total %}<a class="btn btn-ghost btn-sm" href="/orders?q={{ q|urlencode }}&status={{ status }}&p={{ p+1 }}">Next</a>{% endif %}
+  </div>
+</div>
+{% else %}
+<p class="panel-b muted">{% if q or status %}No orders match. Clear the search or pick another status.{% else %}No orders yet. When a customer pays in your store, it shows up here.{% endif %}</p>
+{% endif %}

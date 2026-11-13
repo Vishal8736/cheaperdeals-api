@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Settings - Cheape Deal{% endblock %}
+{% block content %}
+<h1 class="display text-3xl font-extrabold mb-5">Settings</h1>
+
+<section class="panel mb-6" id="go-live" aria-labelledby="ctl-h"><div class="panel-h"><h2 id="ctl-h" class="display text-lg font-bold">Controls</h2></div>
+<div class="panel-b grid md:grid-cols-2 gap-6">
+  <div><h3 class="font-bold mb-1">Kill switch</h3>
+    <p class="muted text-sm mb-3">Stops new supplier orders, tracking, and stock syncs immediately. Orders keep arriving and wait for you.</p>
+    {% if paused %}<form method="post" action="/settings/kill">{{ csrf() }}<input type="hidden" name="state" value="resume"><input type="hidden" name="next" value="/settings"><button class="btn btn-accent">Resume automation</button></form>
+    {% else %}<form method="post" action="/settings/kill" onsubmit="return confirm('Pause all automation?')">{{ csrf() }}<input type="hidden" name="state" value="pause"><input type="hidden" name="next" value="/settings"><button class="btn btn-danger" style="padding:.8rem 1.4rem;font-size:1rem">Pause everything</button></form>{% endif %}</div>
+  <div><h3 class="font-bold mb-1">Rehearsal (DRY-RUN) or live</h3>
+    <p class="muted text-sm mb-3">In rehearsal, orders go through every check but are never sent to the supplier. Go live only after a successful rehearsal.</p>
+    {% if dry_run %}<form method="post" action="/settings/dry-run" onsubmit="return confirm('Go live? New orders will be placed with the supplier and cost real money.')">{{ csrf() }}<input type="hidden" name="state" value="live"><button class="btn">Go live</button></form>
+    {% else %}<form method="post" action="/settings/dry-run">{{ csrf() }}<input type="hidden" name="state" value="dry"><button class="btn btn-accent">Back to rehearsal</button></form>{% endif %}</div>
+</div></section>
+
+<form method="post" action="/settings" class="panel mb-6" aria-labelledby="rules-h">{{ csrf() }}
+  <div class="panel-h"><h2 id="rules-h" class="display text-lg font-bold">Business rules</h2></div>
+  <div class="panel-b grid sm:grid-cols-2 gap-5">
+    {% for key,(d,lbl,hlp) in defs.items() %}
+    <div><label class="f" for="s-{{ key }}">{{ lbl }}</label><input class="in" id="s-{{ key }}" name="{{ key }}" value="{{ values[key] }}" {{ 'inputmode=decimal' if key not in ('default_logistic_name','from_country_code') }}><div class="help">{{ hlp }}</div></div>
+    {% endfor %}
+    <div class="sm:col-span-2"><button class="btn btn-accent">Save settings</button></div>
+  </div></form>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="panel" aria-labelledby="conn-h"><div class="panel-h"><h2 id="conn-h" class="display text-lg font-bold">Connections</h2></div>
+    <dl class="panel-b grid grid-cols-[auto,1fr] gap-x-6 gap-y-2 items-center">
+      <dt class="muted">Supplier</dt><dd><span class="chip chip-dry">Simulated supplier</span></dd>
+      <dt class="muted">Store</dt><dd><span class="chip {{ 'chip-ok' if store_name=='woocommerce' else 'chip-dry' }}">{{ 'WooCommerce' if store_name=='woocommerce' else 'Simulated store' }}</span></dd>
+      <dt class="muted">Telegram alerts</dt><dd>{% if telegram_on %}<span class="chip chip-ok">Connected</span>
+        <form class="inline ml-2" method="post" action="/settings/test-telegram">{{ csrf() }}<button class="btn btn-ghost btn-sm">Send test</button></form>{% else %}<span class="chip chip-warn">Not set up</span> <span class="text-sm muted">Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID</span>{% endif %}</dd>
+      <dt class="muted">Store webhook URL</dt><dd class="break-all num text-sm select-all">{{ webhook_url }}</dd></dl></section>
+  <section class="panel" aria-labelledby="jobs-h"><div class="panel-h"><h2 id="jobs-h" class="display text-lg font-bold">Scheduled jobs (from n8n)</h2></div>
+    <table class="t"><tbody>{% for j in jobs %}<tr><td class="font-semibold">{{ j.label }}</td><td class="muted">{{ j.ts|dt if j.ts else 'Never ran' }}</td><td class="right">{% if j.stale %}<span class="chip chip-warn">Late</span>{% else %}<span class="chip chip-ok">On time</span>{% endif %}</td></tr>{% endfor %}</tbody></table></section>
+</div>
+{% endblock %}

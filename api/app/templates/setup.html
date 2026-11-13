@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Setup wizard - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Setup wizard</h1>
+  <p class="muted mt-1 max-w-[75ch]">Har step system ki asli halat dekh kar apne aap tick hota hai. Upar se neeche chalo: har step mein likha hai kya chahiye aur wo kahan se milega. Ye page khud update hota rehta hai.</p></div>
+<section class="panel mb-6"><div class="panel-b"><div class="flex flex-wrap items-center justify-between gap-2"><b>{{ done }} / {{ total }} zaroori steps pure</b>
+  {% if next_step %}<a class="btn btn-accent btn-sm" href="{{ next_step.href }}">Agla step: {{ next_step.title }}</a>{% else %}<span class="chip chip-ok">Sab zaroori steps ho gaye</span>{% endif %}</div>
+  <div style="height:8px;border-radius:99px;background:#E8EAE5;margin-top:.7rem;overflow:hidden"><div style="height:100%;width:{{ (done * 100 // total) if total else 0 }}%;background:#1E7A3A"></div></div></div></section>
+<ol class="grid gap-3 max-w-[88ch]">{% for x in steps %}
+  <li class="panel"><div class="panel-b grid gap-1.5">
+    <div class="flex flex-wrap items-center gap-2"><span class="chip {{ 'chip-ok' if x.done else ('chip-warn' if x.required else 'chip-off') }}">{{ 'Ho gaya' if x.done else ('Baaki' if x.required else 'Optional') }}</span><b>{{ loop.index }}. {{ x.title }}</b></div>
+    <div class="text-sm"><b>Kya chahiye:</b> {{ x.what }}</div>
+    <div class="text-sm muted"><b>Kahan se / kaise:</b> {{ x.where }}</div>
+    <div><a class="btn btn-ghost btn-sm" href="{{ x.href }}">{{ x.link }} kholo</a></div></div></li>{% endfor %}</ol>
+{% endblock %}

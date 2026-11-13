@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Import products - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5">
+  <h1 class="display text-3xl font-extrabold">Import products</h1>
+  <p class="muted mt-1 max-w-[64ch]">Browse a supplier's products, tick the ones you want, and import them as drafts. You review the price, then list them on your store or website from <a class="underline" href="/products?view=draft">Products</a>.</p>
+</div>
+<form method="get" action="/catalog" class="panel panel-b grid sm:grid-cols-[1fr_1.4fr_auto] gap-3 items-end mb-5">
+  <input type="hidden" name="go" value="1">
+  <div><label class="f" for="src">Supplier</label><select class="in" id="src" name="source"><span class="help" style="display:block">Kis supplier ka catalog dekhna hai (Connect page par jode hue).</span>{% for id, name in sources %}<option value="{{ id }}" {{ 'selected' if id == source }}>{{ name }}</option>{% endfor %}</select></div>
+  <div><label class="f" for="q">Search (optional)</label><input class="in" id="q" name="q" value="{{ q }}" placeholder="e.g. earbuds, kitchen"><span class="help" style="display:block">Kya dhundhna hai (jaise earbuds). Khali chhodo to supplier ka default feed dikhega.</span></div>
+  <button class="btn btn-accent">Browse</button>
+</form>
+{% if sources|length == 1 %}<div class="panel panel-b mb-5 text-sm">Only the built-in supplier is connected. <a class="underline font-semibold" href="/connect">Connect a supplier</a> to import products from a real company.</div>{% endif %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+{% if searched and not error %}
+  {% if items %}
+  <form method="post" action="/catalog/import">{{ csrf() }}
+    <input type="hidden" name="source" value="{{ source }}"><input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="pg" value="{{ pg }}">
+    <div class="flex flex-wrap items-end gap-3 mb-4 panel panel-b">
+      <div><label class="f" for="mk">Markup on cost (%)</label><input class="in num" id="mk" name="markup" value="{{ markup }}" style="width:7rem" inputmode="decimal"><span class="help" style="display:block">Import hone par supplier cost ke upar kitna % markup. Khali = Settings ka global markup (ya Playbook ka tier agar ON hai).</span></div>
+      <button class="btn btn-accent">Import ticked products</button>
+      <label class="text-sm flex items-center gap-2"><input type="checkbox" onclick="document.querySelectorAll('.pickbox:not(:disabled)').forEach(c=>c.checked=this.checked)"> Tick all</label>
+      <span class="muted text-sm ml-auto">{{ items|length }} product(s) on this page</span>
+    </div>
+    <div class="pgrid">
+      {% for i in items %}
+      <div class="pcard">
+        <label class="pick"><input class="pickbox" type="checkbox" name="pick" value="{{ i.supplier_product_id }}" {{ 'disabled' if i.vid in have }}> {{ 'Imported' if i.vid in have else 'Pick' }}</label>
+        {% if i.image_url %}<img src="{{ i.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}<div class="thumb" style="width:100%;height:auto;aspect-ratio:1/1"></div>{% endif %}
+        <div class="b"><div class="font-semibold leading-tight">{{ i.title }}</div>
+          <div class="text-xs muted">{{ i.category or 'No category' }}{% if i.sku %} &middot; {{ i.sku }}{% endif %}</div>
+          <div class="mt-auto flex justify-between items-baseline pt-2"><span class="num font-bold">{{ i.cost|money }}</span><span class="text-xs muted num">stock {{ i.stock }}</span></div>
+          <div class="text-xs muted">Sell at about {{ (i.cost * (1 + markup/100))|money }}</div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </form>
+  <div class="flex gap-2 mt-5">
+    {% if pg > 1 %}<a class="btn btn-ghost btn-sm" href="/catalog?source={{ source }}&q={{ q }}&pg={{ pg - 1 }}&go=1">Previous page</a>{% endif %}
+    {% if items|length >= 20 %}<a class="btn btn-ghost btn-sm" href="/catalog?source={{ source }}&q={{ q }}&pg={{ pg + 1 }}&go=1">Next page</a>{% endif %}
+  </div>
+  {% else %}<div class="panel panel-b muted">Nothing found. Try another search.</div>{% endif %}
+{% endif %}
+{% endblock %}

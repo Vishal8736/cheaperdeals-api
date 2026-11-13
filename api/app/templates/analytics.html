@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Analytics - Cheape Deal{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+  <div><h1 class="display text-3xl font-extrabold">Analytics</h1>
+    <p class="muted mt-1 max-w-[62ch]">Sales, profit and fulfilment for the last {{ r.days }} days. Profit = order total minus each product's current supplier price; shipping and fees are not included.</p></div>
+  <nav class="tabs" aria-label="Period">{% for d in (7, 30, 90) %}<a href="/analytics?days={{ d }}" {% if r.days == d %}aria-current="true"{% endif %}>{{ d }} days</a>{% endfor %}</nav>
+</div>
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+  <div class="tile"><div><div class="v num">{{ r.revenue|money }}</div><div class="k">Revenue ({{ r.orders }} orders)</div></div></div>
+  <div class="tile ok"><div><div class="v num">{{ r.profit|money }}</div><div class="k">Estimated profit</div></div></div>
+  <div class="tile"><div><div class="v num">{{ r.margin }}%</div><div class="k">Profit margin</div></div></div>
+  <div class="tile"><div><div class="v num">{{ r.aov|money }}</div><div class="k">Average order</div></div></div>
+</section>
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Revenue and profit per day</h2><span class="text-xs muted"><span style="color:var(--accent-deep)">&#9632;</span> revenue &nbsp;<span style="color:var(--live)">&#9632;</span> profit</span></div>
+  <div class="panel-b overflow-x-auto"><div style="display:flex;align-items:flex-end;gap:3px;height:160px;min-width:{{ r.per_day|length * 14 }}px">
+    {% for d in r.per_day %}<div title="{{ d.label }}: {{ d.revenue|money }} revenue, {{ d.profit|money }} profit, {{ d.orders }} orders" style="flex:1;display:flex;align-items:flex-end;gap:1px;height:100%">
+      <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:{{ (d.revenue / r.max_day * 100)|round(1) if d.revenue > 0 else 0 }}%;min-height:{{ 2 if d.revenue > 0 else 0 }}px"></div>
+      <div style="flex:1;background:var(--live);border-radius:2px 2px 0 0;height:{{ ((d.profit if d.profit > 0 else 0) / r.max_day * 100)|round(1) }}%"></div></div>{% endfor %}
+  </div></div></section>
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Top products by profit</h2></div>
+    {% if r.top %}<div class="overflow-x-auto"><table class="t"><thead><tr><th>Product</th><th class="right">Units</th><th class="right">Revenue</th><th class="right">Profit</th></tr></thead><tbody>
+      {% for p in r.top %}<tr><td>{{ p.title }}</td><td class="right num">{{ p.units }}</td><td class="right num">{{ p.revenue|money }}</td><td class="right num"><b>{{ p.profit|money }}</b></td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="panel-b muted">No sales in this period yet.</p>{% endif %}</section>
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Profit by supplier</h2></div>
+    {% if r.suppliers %}<div class="overflow-x-auto"><table class="t"><thead><tr><th>Supplier</th><th class="right">Orders</th><th class="right">Revenue</th><th class="right">Profit</th></tr></thead><tbody>
+      {% for name, s in r.suppliers %}<tr><td>{{ name }}</td><td class="right num">{{ s.orders }}</td><td class="right num">{{ s.revenue|money }}</td><td class="right num"><b>{{ s.profit|money }}</b></td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="panel-b muted">Nothing yet.</p>{% endif %}</section>
+</div>
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Supplier scorecard</h2></div>
+    {% if r.scorecard %}<div class="overflow-x-auto"><table class="t"><thead><tr><th>Supplier</th><th class="right">Orders</th><th class="right">Without problems</th><th class="right">Hours to ship</th></tr></thead><tbody>
+      {% for c in r.scorecard %}<tr><td>{{ c.name }}</td><td class="right num">{{ c.orders }}</td><td class="right num">{{ c.ok_pct }}%</td><td class="right num">{{ c.avg_ship_hours if c.avg_ship_hours is not none else '-' }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="panel-b muted">No orders in this period.</p>{% endif %}</section>
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Not selling (60 days)</h2></div>
+    {% if r.dead %}<ul class="panel-b space-y-1.5 text-sm">{% for p in r.dead %}<li>{{ p.title }} <span class="muted">({{ p.selling_price|money }})</span></li>{% endfor %}</ul>
+    <p class="px-4 pb-3 text-xs muted">Listed products with no order for 60 days. Consider switching them off on the Products page.</p>
+    {% else %}<p class="panel-b muted">Nothing is stuck. Every listed product sold in the last 60 days, or is newer than that.</p>{% endif %}</section>
+</div>
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Fulfilment health</h2></div>
+  <div class="panel-b grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6">
+    <div class="fig"><span class="v num">{{ r.success_pct }}%</span><span class="k">Delivered</span></div>
+    <div class="fig"><span class="v num">{{ r.failed }}</span><span class="k">Needed you (failed)</span></div>
+    <div class="fig"><span class="v num">{{ r.avg_ship_hours if r.avg_ship_hours is not none else '-' }}{% if r.avg_ship_hours is not none %}<span class="muted text-base font-semibold"> h</span>{% endif %}</span><span class="k">Average time to ship</span></div>
+    <div class="flex flex-wrap gap-1.5 items-start">{% for st, n in r.statuses %}<span class="chip chip-{{ st }}">{{ st|label }} {{ n }}</span>{% endfor %}</div>
+  </div></section>
+{% endblock %}

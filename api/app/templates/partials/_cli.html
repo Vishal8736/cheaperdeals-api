@@ -1,0 +1,36 @@
+{% from "partials/_macros.html" import csrf with context %}
+{# Vercel + Render through their command-line tools: no API key. Included on API Keys and Website jodo. #}
+{% set nxt = cli_next or '/keys' %}
+<section id="cli-section" class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">Login (CLI se): Vercel, Render, GitHub, Neon</h2>
+  </div>
+  <div class="panel-b grid gap-3 text-sm">
+    <p>API key (ya Pro plan) ki zarurat nahi. Dono ki apni command-line tool browser se ek baar login leti hai, phir ye project wahi tool chalakar deploy karta hai. Login is computer par CLI ke paas rehta hai, is app mein koi key save nahi hoti.</p>
+    <div class="grid sm:grid-cols-2 gap-4">
+      {% for c in cli["items"] %}{% set w = c.key %}
+      <div class="border border-dashed border-[#D8DCD5] rounded-lg p-3 grid gap-2"><b>{{ c.label }}</b>
+        <div>{% if c.status %}{% if not c.status.installed %}<span class="chip chip-warn">CLI nahi mili</span> <span class="help">{{ c.install }}</span>{% elif c.status.logged_in %}<span class="chip chip-ok">login hai: {{ c.status.who }}</span>{% else %}<span class="chip chip-warn">login nahi</span>{% endif %}{% else %}<span class="chip chip-off">abhi check nahi kiya</span>{% endif %}</div>
+        <form method="post" action="/website/connect/cli/login">{{ csrf() }}<input type="hidden" name="which" value="{{ w }}"><input type="hidden" name="next" value="{{ nxt }}"><button class="btn btn-accent btn-sm">{{ c.label.split(' ')[0] }} login (CLI)</button></form>
+        {% if c.login %}<div class="text-xs grid gap-1"><span class="chip {{ {'running':'chip-dry','done':'chip-ok','failed':'chip-warn'}.get(c.login.state,'chip-off') }}">login: {{ {'running':'chal raha hai, browser mein allow karo','done':'poora (ab Status check dabao)','failed':'fail'}.get(c.login.state, c.login.state) }}</span>
+          {% if c.login.url %}<a class="underline" href="{{ c.login.url }}" target="_blank" rel="noopener">{{ c.login.url }}</a>{% endif %}
+          {% for l in c.login.lines %}<code>{{ l }}</code>{% endfor %}</div>{% endif %}
+      </div>{% endfor %}
+    </div>
+    <div class="flex flex-wrap gap-2 items-center">
+      <form method="post" action="/website/connect/cli/status">{{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}"><button class="btn btn-ghost btn-sm">Status check (chaaron)</button></form>
+</div>
+    <p class="help">CLI chahiye: Vercel/Neon ke liye Node.js, Render ke liye <code>render</code>, GitHub ke liye <code>gh</code> (PATH mein). Login chalte waqt page khud refresh hota hai. Login CLI ke paas rehta hai, is app mein koi key save nahi hoti.</p>
+    <script>
+    (function(){
+      /* Buttons here POST and redirect, which used to throw the page back to the top. Remember the scroll position and put it back. */
+      var KEY="cli-scroll:"+location.pathname;
+      function save(){try{sessionStorage.setItem(KEY,String(window.scrollY||document.documentElement.scrollTop||0));}catch(e){}}
+      function restore(){try{var y=sessionStorage.getItem(KEY);if(y!==null){sessionStorage.removeItem(KEY);window.scrollTo(0,parseInt(y,10)||0);}}catch(e){}}
+      if("scrollRestoration" in history){history.scrollRestoration="manual";}
+      restore();window.addEventListener("load",restore);
+      var sec=document.getElementById("cli-section");
+      if(sec){sec.addEventListener("submit",save,true);}
+      {% if cli.busy %}setTimeout(function(){save();location.reload();},4000);{% endif %}
+    })();
+    </script>
+  </div>
+</section>

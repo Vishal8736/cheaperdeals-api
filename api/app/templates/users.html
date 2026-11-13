@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Users - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Users aur 2FA</h1>
+  <p class="muted mt-1 max-w-[70ch]">Admin ({{ admin }}) sab kuch kar sakta hai. <b>Operator</b> roz ka kaam (orders, products, approvals) kar sakta hai par settings/connect/system/users nahi khol sakta. <b>Viewer</b> sirf dekh sakta hai.</p></div>
+<div class="grid lg:grid-cols-2 gap-6">
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Team</h2></div>
+  {% if users %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for u in users %}<li class="px-4 py-3 text-sm grid gap-2"><div><b>{{ u.username }}</b> <span class="chip chip-off">{{ u.role }}</span> {% if not u.enabled %}<span class="chip chip-bad">disabled</span>{% endif %}</div>
+    <div class="flex flex-wrap gap-2 items-center"><form method="post" action="/users/{{ u.id }}/toggle">{{ csrf() }}<button class="btn btn-ghost btn-sm">{{ 'Enable' if not u.enabled else 'Disable' }}</button></form>
+    <form method="post" action="/users/{{ u.id }}/delete" onsubmit="return confirm('Delete this user?')">{{ csrf() }}<button class="btn btn-ghost btn-sm">Delete</button></form>
+    <form method="post" action="/users/{{ u.id }}/password" class="flex gap-1">{{ csrf() }}<label class="sr-only" for="pw{{ u.id }}">New password</label><input class="in" id="pw{{ u.id }}" name="password" type="password" placeholder="new password" style="min-height:2rem;width:9rem"><button class="btn btn-ghost btn-sm">Change</button></form></div></li>{% endfor %}</ul>
+  {% else %}<p class="panel-b muted">Abhi sirf admin hai.</p>{% endif %}
+  <form method="post" action="/users" class="panel-b grid sm:grid-cols-3 gap-2 border-t border-dashed border-[#D8DCD5]">{{ csrf() }}
+    <div><label class="f" for="nu">Username</label><input class="in" id="nu" name="username" required><span class="help" style="display:block">Naye team member ka username (3-60 akshar).</span></div>
+    <div><label class="f" for="np">Password (8+)</label><input class="in" id="np" name="password" type="password" required><span class="help" style="display:block">Kam se kam 8 akshar. Strong rakho aur sirf us vyakti ko do.</span></div>
+    <div><label class="f" for="nr">Role</label><select class="in" id="nr" name="role"><span class="help" style="display:block">Operator = roz ka kaam (orders, products), settings nahi. Viewer = sirf dekh sakta hai.</span><option value="viewer">viewer</option><option value="operator">operator</option></select></div>
+    <div class="sm:col-span-3"><button class="btn btn-accent btn-sm">Add user</button></div></form></section>
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Admin 2FA</h2><span class="chip {{ 'chip-ok' if totp_on else 'chip-off' }}">{{ 'ON' if totp_on else 'OFF' }}</span></div>
+  <div class="panel-b grid gap-3 text-sm">
+  {% if totp_on %}<p>Login par password ke saath authenticator ka 6-digit code lagta hai. Phone kho jaye to PC par <code>python scripts\local_run.py --disable-2fa</code> chalao.</p>
+    <form method="post" action="/users/2fa/off" class="flex gap-2 items-end">{{ csrf() }}<div><label class="f" for="of">Current code</label><input class="in" id="of" name="code" inputmode="numeric" required style="width:9rem"><span class="help" style="display:block">Authenticator app ka abhi dikh raha 6-digit code (har 30 second mein badalta hai).</span></div><button class="btn btn-ghost btn-sm">Turn 2FA off</button></form>
+  {% elif pending %}<p>1) Authenticator app (Google/Microsoft Authenticator, Authy) kholo, "Enter setup key" chuno.<br>2) Account: <b>{{ admin }}</b>, key: <code style="word-break:break-all">{{ pending }}</code>, type: time-based.<br>3) App ka 6-digit code yahan daalo:</p>
+    <form method="post" action="/users/2fa/confirm" class="flex gap-2 items-end">{{ csrf() }}<div><label class="f" for="cf">Code</label><input class="in" id="cf" name="code" inputmode="numeric" required style="width:9rem"><span class="help" style="display:block">Authenticator app ka abhi dikh raha 6-digit code (har 30 second mein badalta hai).</span></div><button class="btn btn-accent btn-sm">Turn 2FA on</button></form>
+  {% else %}<p>Password leak ho jaye tab bhi koi andar na aa sake. Ye sirf admin account par lagta hai. Internet par (VPS) chalate ho to zaroor on karo.</p>
+    <form method="post" action="/users/2fa/start">{{ csrf() }}<button class="btn btn-accent btn-sm">Set up 2FA</button></form>{% endif %}</div></section></div>
+{% endblock %}

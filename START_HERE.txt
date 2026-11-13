@@ -1,0 +1,33 @@
+CHEAPERDEALS v16.4 - kaise chalao (Windows)
+1. Zip extract karo. run_local.bat double-click.
+2. http://localhost:8000 kholo, admin login.
+3. Menu > "API Keys + Ping":
+   a) CJ API key daalo (hamesha ke liye save).
+   b) Vercel, Render, GitHub, Neon: har ek ka "login (CLI)" dabao, browser mein allow karo, phir "Status check".
+      (CLI chahiye: Node.js, render, gh. Neon ke liye app npx se neonctl@7.0.8 chalati hai.)
+      Render: workspace app khud set karti hai (ek ho to); purani kharab ~/.render/cli.yaml bhi khud theek karti hai.
+4. Upar Start dabao: login nahi hai to browser login khud kholta hai (allow karo), phir detection se dekhta hai Render/GitHub/Neon/Vercel par kya bana hai; jo nahi mila wo khud banakar jodta hai. Extra host button nahi.
+5. Website > "Website jodo": "Render admin password dikhao", phir Render ke admin mein Import products karo.
+Live (asli orders) tabhi ON karo jab rehearsal mein ek test order dekh lo.
+
+LOGS / ERROR PAKADNA (naya):
+- Menu > "Diagnostics (logs)": har error/warning save hota hai (keys/password hata kar), ek jaisi problem ek line mein gini jati hai, jaani-pehchani problem ke saath "kya karo" likha aata hai.
+- Koi bhi dikkat: "Report download (.txt)" dabao aur wo file bhej do. Usme health check, Start ka log, problems aur aakhri 300 lines hain.
+- Page crash ho to screen par "Error ID" aata hai: Diagnostics > Error ID mein daalo.
+- File copy: logs/cheaperdeals.log (project folder mein).
+NAYA v16.4:
+- FIX: GitHub 'files upload ne mana kiya (404) Not Found'. Karan: keep-alive workflow file ke liye token ko 'workflow' permission chahiye. Ab login mein wo permission mangta hai; purane login par us ek file ke bina baaki code upload ho jata hai (log mein warning).
+- Code review: unused imports hataye, naya smoke test har page par server error pakadta hai.
+v16.3:
+- FIX: Neon 'What organization would you like to use?' par Start ruk jata tha. Ab organization khud chun kar --org-id ke saath chalata hai.
+v16.2:
+- FIX: Neon 'CLI ka jawab padh nahi paya' (neonctl JSON ke saath banner/warning chhapta tha). Ab output se JSON khud nikalta hai, table bhi padh leta hai, aur fail ho to error mein CLI ka asli output dikhata hai.
+v16.1:
+- FIX: Start par 'NoneType object has no attribute get' (Render par koi service na ho to CLI `null` deta tha). Ab khali account par Start seedha sab banata hai.
+- Start ab login bhi khud karwata hai aur detection (mila / nahi mila / pata nahi) Website jodo page par dikhata hai.
+- Sach: CLI commands asli Render/GitHub/Neon/Vercel par live nahi chale (tests nakli CLI se). Pehla asli Start hi asli test hai; galti aaye to Diagnostics page dekho.
+v16:
+- Website jodo page: "Start se pehle jaanch" (kuch badle bina dikhata hai kya ready hai/kya missing) aur
+  "Render par naya code bhejo" (zip update karne ke baad: code GitHub par jata hai, Render build karke chalata hai).
+- Start ke log mein agar Render par purana version chal raha ho to warning aati hai.
+Detail: docs/WEBSITE_DEPLOY.md

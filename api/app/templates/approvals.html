@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Approvals - Cheape Deal{% endblock %}
+{% block content %}
+<h1 class="display text-3xl font-extrabold mb-1">Approvals</h1>
+<p class="muted mb-5 max-w-[60ch]">Orders at or above your approval threshold wait here. Approve to send them to the supplier, or reject to cancel.</p>
+{% if pending %}
+<div class="space-y-4 mb-8">
+{% for a in pending %}{% set o = a.order %}
+<section class="panel" aria-label="Order {{ o.store_order_number }}">
+  <div class="panel-h"><h2 class="display text-lg font-bold"><a class="underline" href="/orders/{{ o.id }}">Order #{{ o.store_order_number }}</a></h2><span class="num font-bold text-xl">{{ o.total|money }}</span></div>
+  <div class="panel-b grid md:grid-cols-[1fr,auto] gap-4 items-center">
+    <div><p>{{ o.customer_name }}, {{ o.ship_city }}, {{ o.ship_country or o.ship_country_code }}</p>
+      <ul class="text-sm muted mt-1">{% for it in o.items %}<li>{{ it.quantity }} x {{ it.title }}</li>{% endfor %}</ul>
+      <p class="text-sm mt-2"><span class="chip chip-pending_approval">Why it is here</span> {{ a.reason }}</p></div>
+    <div class="flex gap-2">
+      <form method="post" action="/orders/{{ o.id }}/approve">{{ csrf() }}<button class="btn btn-accent">Approve and send</button></form>
+      <form method="post" action="/orders/{{ o.id }}/reject" onsubmit="return confirm('Reject and cancel this order? Refund the customer in your store.')">{{ csrf() }}<button class="btn btn-ghost">Reject</button></form>
+    </div></div></section>
+{% endfor %}</div>
+{% else %}<div class="panel panel-b mb-8"><p class="font-semibold">Nothing is waiting for you.</p><p class="muted">Orders over the threshold in Settings will appear here. Alerts also reach you on Telegram.</p></div>{% endif %}
+
+{% if recent %}<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Recent decisions</h2></div>
+<table class="t"><thead><tr><th>Order</th><th>Decision</th><th>When</th></tr></thead><tbody>
+{% for a in recent %}<tr><td><a class="underline num" href="/orders/{{ a.order_id }}">#{{ a.order.store_order_number }}</a></td><td><span class="chip {{ 'chip-ok' if a.status=='approved' else 'chip-bad' }}">{{ a.status|capitalize }}</span></td><td class="muted">{{ a.decided_at|dt }}</td></tr>{% endfor %}
+</tbody></table></section>{% endif %}
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Website - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Website (dukaan)</h1>
+  <p class="mt-2"><a class="btn btn-accent btn-sm" href="/website/connect">Website jodo: Vercel + Render</a> <a class="btn btn-ghost btn-sm" href="/support">Customer support</a></p>
+  <p class="muted mt-1 max-w-[70ch]">Yahan se tumhari public dukaan chalti hai (Vercel par dikhti hai, ye server peeche ka kaam karta hai). Products, prices, stock aur order sab engine se apne aap aate hain. Tumhe sirf neeche ke kuch kaam karne hain.</p></div>
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">Haal</h2>
+  <span class="chip {{ 'chip-ok' if shop_open else 'chip-dry' }}">{{ 'Dukaan khuli' if shop_open else 'Dukaan band' }}</span></div>
+  <div class="panel-b grid sm:grid-cols-4 gap-3 text-sm">
+    <div><b class="text-2xl display">{{ live }}</b><div class="muted">website par dikh rahe</div></div>
+    <div><b class="text-2xl display">{{ drafts }}</b><div class="muted">taiyaar par lage nahi</div></div>
+    <div><b class="text-2xl display">{{ orders|length }}</b><div class="muted">recent orders</div></div>
+    <div><b class="text-2xl display">{{ subs }}</b><div class="muted">email subscribers {% if subs %}<a class="underline" href="/website/subscribers.csv">CSV</a>{% endif %}</div></div>
+  </div>
+  {% if drafts %}<form method="post" action="/website/publish" class="panel-b border-t border-dashed border-[#D8DCD5]">{{ csrf() }}
+    <button class="btn btn-accent btn-sm">{{ drafts }} product website par lagao</button>
+    <span class="help">Sirf wahi jinka selling price set hai. Baaki Products page par price daalo.</span></form>{% endif %}
+  <div class="panel-b border-t border-dashed border-[#D8DCD5] text-sm">
+    <p><b>Server jagaye rakhne ka address:</b> <code>{{ base }}/ping</code> — isse UptimeRobot ya GitHub Actions har 10 minute pe kholte hain. {% if self_ping %}Server khud bhi apne aap ko ping karta hai.{% else %}<span class="muted">(Apne aap ping tab chalta hai jab KEEPALIVE_URL / Render ka URL set ho.)</span>{% endif %}</p>
+  </div>
+</section>
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">Orders (website se)</h2></div>
+  {% if not orders %}<p class="panel-b muted">Abhi koi order nahi aaya.</p>{% else %}
+  <div class="panel-b overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left muted"><th>No.</th><th>Customer</th><th>Total</th><th>Payment</th><th>Haal</th><th></th></tr></thead><tbody>
+  {% for o in orders %}<tr class="border-t border-[#E6E9E2] align-top"><td class="py-2"><b>W{{ 1000 + o.id }}</b><div class="muted text-xs">{{ o.created_at.strftime('%d %b %H:%M') }}</div></td>
+    <td>{{ o.customer_name }}<div class="muted text-xs">{{ o.email }} · {{ o.phone }}</div></td>
+    <td>{{ o.total }} {{ o.currency }}</td><td>{{ o.pay_mode }}</td>
+    <td><span class="chip {{ 'chip-ok' if o.status == 'paid' else 'chip-dry' }}">{{ o.status }}</span>{% if o.engine_order_id %} <a class="underline text-xs" href="/orders/{{ o.engine_order_id }}">engine order</a>{% endif %}</td>
+    <td class="whitespace-nowrap">{% if o.status == 'pending' %}
+      <form method="post" action="/website/orders/{{ o.id }}/paid" class="inline">{{ csrf() }}<button class="btn btn-accent btn-sm" onclick="return confirm('Paisa mil gaya? Mark paid karte hi supplier ko order chala jayega.')">Mark paid</button></form>
+      <form method="post" action="/website/orders/{{ o.id }}/cancel" class="inline">{{ csrf() }}<button class="btn btn-ghost btn-sm">Cancel</button></form>{% elif o.status == 'paid' %}
+      <form method="post" action="/website/orders/{{ o.id }}/refund" class="inline">{{ csrf() }}<button class="btn btn-ghost btn-sm" onclick="return confirm('Refund karna hai? Razorpay ho to paisa apne aap wapas jayega, baaki me tumhe khud bhejna hoga.')">Refund</button></form>{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>{% endif %}
+</section>
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">Dukaan ki settings</h2></div>
+  <form method="post" action="/website/settings" class="panel-b grid sm:grid-cols-2 gap-3">{{ csrf() }}
+    <label class="flex items-center gap-2 sm:col-span-2"><input type="checkbox" name="shop_on" {{ 'checked' if shop_open }}> Dukaan khuli hai <span class="help">Band karoge to koi naya order nahi le sakta.</span></label>
+    <div><label class="f" for="w-n">Dukaan ka naam</label><input class="in" id="w-n" name="shop_name" value="{{ v.shop_name }}"></div>
+    <div><label class="f" for="w-t">Tagline</label><input class="in" id="w-t" name="shop_tagline" value="{{ v.shop_tagline }}"></div>
+    <div class="sm:col-span-2"><label class="f" for="w-a">Upar ki patti (announcement)</label><input class="in" id="w-a" name="shop_announce" value="{{ v.shop_announce }}" placeholder="khali = nahi dikhegi"><span class="help" style="display:block">Sirf wahi likho jo sach ho.</span></div>
+    <div><label class="f" for="w-cs">Currencies jo customer chun sake</label><input class="in" id="w-cs" name="shop_currencies" value="{{ v.shop_currencies }}"><span class="help" style="display:block">Comma se: USD,INR,EUR,GBP. Har currency ka rate chahiye (neeche "Rates refresh"). Abhi chal rahi: <b>{{ currencies|join(', ') }}</b>.</span></div>
+    <div><label class="f" for="w-c">Dukaan kis currency mein khule</label><input class="in" id="w-c" name="shop_currency" value="{{ v.shop_currency }}" maxlength="3"></div>
+    <div><label class="f" for="w-s">Shipping fee (USD mein)</label><input class="in" id="w-s" name="shop_ship_flat" value="{{ v.shop_ship_flat }}" inputmode="decimal"><span class="help" style="display:block">Customer ko uski currency mein dikhegi. Product prices bhi USD se badalti hain (system ka base USD hai).</span></div>
+    <div><label class="f" for="w-f">Is USD rakam se upar shipping free</label><input class="in" id="w-f" name="shop_free_over" value="{{ v.shop_free_over }}" inputmode="decimal"><span class="help" style="display:block">0 = kabhi free nahi.</span></div>
+    <div><label class="f" for="w-k">Delivery wale desh (2 akshar, comma se)</label><input class="in" id="w-k" name="shop_countries" value="{{ v.shop_countries }}"></div>
+    <div><label class="f" for="w-d">Delivery ke din (dukaan par dikhega)</label><input class="in" id="w-d" name="shop_delivery_days" value="{{ v.shop_delivery_days }}"><span class="help" style="display:block">CJ se asli time check karke likho. Jhooth mat likhna.</span></div>
+    <div><label class="f" for="w-e">Support email</label><input class="in" id="w-e" name="shop_support_email" value="{{ v.shop_support_email }}"></div>
+    <div class="sm:col-span-2"><label class="f" for="w-su">Dukaan ka address (Vercel)</label><input class="in" id="w-su" name="shop_site_url" value="{{ v.shop_site_url }}" placeholder="https://tumhari-dukaan.vercel.app"><span class="help" style="display:block">Customer ko jaane wale email mein ticket ka link isi se banta hai.</span></div>
+    <div><label class="f" for="w-ad">Business address (legal pages par)</label><input class="in" id="w-ad" name="shop_address" value="{{ v.shop_address }}"></div>
+    <div><label class="f" for="w-mb">CJ wallet ka minimum balance (USD)</label><input class="in" id="w-mb" name="cj_min_balance" value="{{ v.cj_min_balance }}" inputmode="decimal"><span class="help" style="display:block">Isse neeche jaye to Alert aayega. Abhi balance: <b>{{ cj_balance or 'abhi check nahi hua' }}</b></span></div>
+
+    <div class="sm:col-span-2 border-t border-dashed border-[#D8DCD5] pt-3"><h3 class="display font-bold">Payment ke tarike</h3>
+      <p class="help">Engine supplier ko tab hi paisa deta hai jab order <b>paid</b> ho. Card payment bina processor ke nahi ho sakta, aur har processor fee leta hai. <b>Bina commission</b> wale tarike: UPI aur bank/manual.</p></div>
+    <div class="sm:col-span-2 grid sm:grid-cols-2 gap-2">{% for key, label, on, ok in methods %}
+      <label class="flex items-center gap-2"><input type="checkbox" name="method_{{ key }}" {{ 'checked' if on }}> {{ label }} <span class="chip {{ 'chip-ok' if ok else 'chip-dry' }}">{{ 'ready' if ok else 'jaankari baaki' }}</span></label>{% endfor %}
+      <span class="help sm:col-span-2">Abhi dukaan par dikh rahe: <b>{{ active|join(', ') }}</b></span></div>
+    <div class="sm:col-span-2"><label class="f" for="w-p">Manual payment ke liye customer ko kya dikhe</label><textarea class="in" id="w-p" name="shop_pay_note" rows="2">{{ v.shop_pay_note }}</textarea></div>
+
+    <div class="sm:col-span-2 border-t border-dashed border-[#D8DCD5] pt-3"><h3 class="display font-bold">UPI (sirf INR, 0 fee)</h3></div>
+    <div><label class="f" for="w-u">Tumhari UPI ID</label><input class="in" id="w-u" name="upi_vpa" value="{{ v.upi_vpa }}" placeholder="naam@bank"></div>
+    <div><label class="f" for="w-un">UPI par dikhne wala naam</label><input class="in" id="w-un" name="upi_name" value="{{ v.upi_name }}"><span class="help" style="display:block">UPI se paisa aane ka apne aap pata nahi chalta: bank app dekh ke "Mark paid" dabao. Customer UTR bhejta hai to Alert aata hai.</span></div>
+
+    <div class="sm:col-span-2 border-t border-dashed border-[#D8DCD5] pt-3"><h3 class="display font-bold">Razorpay (card/UPI online, apni fee leta hai)</h3></div>
+    <div><label class="f" for="w-ri">Key ID</label><input class="in" id="w-ri" name="razorpay_key_id" value="{{ v.razorpay_key_id }}" placeholder="rzp_live_..." autocomplete="off"></div>
+    <div><label class="f" for="w-rs">Key Secret</label><input class="in" id="w-rs" name="razorpay_key_secret" type="password" autocomplete="new-password" placeholder="{{ 'saved' if rzp else '' }}"></div>
+    <div class="sm:col-span-2"><label class="f" for="w-rw">Webhook secret (optional)</label><input class="in" id="w-rw" name="razorpay_webhook_secret" type="password" autocomplete="new-password"><span class="help" style="display:block">Webhook URL <code>{{ base }}/shop/razorpay/webhook</code>, event <b>payment.captured</b>.</span></div>
+    <div class="sm:col-span-2"><button class="btn btn-accent btn-sm">Save</button></div>
+  </form>
+  <div class="panel-b border-t border-dashed border-[#D8DCD5] flex flex-wrap gap-2">
+    <form method="post" action="/website/rates">{{ csrf() }}<button class="btn btn-ghost btn-sm">Exchange rates refresh</button></form>
+    <form method="post" action="/website/watch">{{ csrf() }}<button class="btn btn-ghost btn-sm">Wallets + CJ balance abhi check karo</button></form>
+    <span class="help">Ye dono apne aap bhi chalte hain (har 2 minute / 12 ghante).</span></div>
+</section>
+{% endblock %}

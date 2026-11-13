@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Strategy: {{ p.title }} - Cheape Deal{% endblock %}
+{% block content %}
+{% set labels = {"viable":"Good opportunity","applied":"Live","needs_check":"Check price","needs_rate":"Check rate","stale":"Price too old","not_viable":"Not profitable","no_data":"No price entered"} %}
+<p class="mb-2"><a href="/strategy" class="text-sm">&larr; Strategy</a></p>
+<div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+  <div><h1 class="display text-3xl font-extrabold">{{ p.title }}</h1>
+    <p class="muted mt-1">Supplier cost <b class="num">{{ p.supplier_price|money }}</b> &middot; selling now at <b class="num">{{ p.selling_price|money }}</b>
+      {% if p.strategy_managed %}&middot; <span class="chip chip-applied">Priced by Strategy</span>{% endif %}{% if p.manual_override %}&middot; <span class="chip chip-off">Manual price: the agent will not touch it</span>{% endif %}</p></div>
+  {% if p.strategy_managed %}<form method="post" action="/strategy/revert/{{ p.id }}">{{ csrf() }}<button class="btn btn-ghost">Revert to normal markup price</button></form>{% endif %}
+</div>
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Every country, best first</h2></div>
+  <div class="overflow-x-auto"><table class="t"><thead><tr><th>Country</th><th class="right">Shelf price</th><th class="right">Our cost to deliver</th><th class="right">Lowest safe price</th><th class="right">Our price</th><th class="right">Profit / unit</th><th>Verdict</th><th></th></tr></thead><tbody>
+  {% for e in evs %}<tr>
+    <td><b>{{ e.market.name }}</b><div class="text-xs muted">ship ${{ e.market.shipping_usd }}, duty {{ e.market.duty_pct }}%, VAT {{ e.market.tax_pct }}%</div></td>
+    <td class="right num">{% if e.obs %}{{ e.ref_local }} {{ e.market.currency }}<div class="text-xs muted">{{ e.ref_usd|money }}{% if e.ratio %} &middot; {{ e.ratio }}x our cost{% endif %}</div>{% else %}-{% endif %}</td>
+    <td class="right num">{{ e.landed_usd|money if e.landed_usd else '-' }}</td>
+    <td class="right num">{{ e.floor_usd|money if e.floor_usd else '-' }}</td>
+    <td class="right num"><b>{{ e.price_usd|money if e.price_usd else '-' }}</b>{% if e.price_usd and e.market.currency != 'USD' %}<div class="text-xs muted">{{ e.price_local }} {{ e.market.currency }}</div>{% endif %}</td>
+    <td class="right num">{{ e.profit_usd|money if e.price_usd else '-' }}{% if e.price_usd %}<div class="text-xs muted">{{ e.profit_pct }}%</div>{% endif %}</td>
+    <td><span class="chip chip-{{ e.status }}">{{ labels[e.status] }}</span><div class="text-xs muted mt-1 max-w-[34ch]">{{ e.reason }}</div>{% for w in e.warnings %}<div class="text-xs mt-1" style="color:var(--warn)">{{ w }}</div>{% endfor %}</td>
+    <td>{% if e.status == 'viable' and not p.manual_override %}<form method="post" action="/strategy/apply/{{ p.id }}">{{ csrf() }}<input type="hidden" name="market" value="{{ e.market.id }}"><button class="btn btn-accent btn-sm">Apply</button></form>{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div></section>
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Price watch search words</h2></div>
+  <form method="post" action="/strategy/product/{{ p.id }}/search" class="panel-b flex flex-wrap items-end gap-2">{{ csrf() }}
+    <div class="flex-1 min-w-[14rem]"><label class="f" for="sq">eBay par kya search karein?</label><input class="in" id="sq" name="query" value="{{ p.search_query }}" placeholder="table fan 16 inch"><div class="help">Jitna exact, utna sahi price. Khali = is product ke liye price watch band.</div></div><button class="btn btn-ghost btn-sm">Save</button></form></section>
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Supplier currency</h2></div>
+  <form method="post" action="/strategy/product/{{ p.id }}/currency" class="panel-b flex flex-wrap items-end gap-2">{{ csrf() }}
+    <div><label class="f" for="cc">The supplier quotes this product in</label><input class="in" id="cc" name="cost_currency" value="{{ p.cost_currency or 'USD' }}" style="width:7rem"><span class="help" style="display:block">Supplier is product ka price kis currency mein batata hai. Khali = USD. IndiaMART jaise seller ke liye INR chuno, warna cost galat ginegi.</span></div>
+    <button class="btn btn-ghost btn-sm">Save</button>
+    <div class="help w-full">For an Indian supplier that prices in INR, enter INR: from the next stock sync every supplier price is converted to USD, so profit stays correct.</div></form></section>
+{% endblock %}

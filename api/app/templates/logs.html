@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<form method="get" class="filters"><input name="q" value="{{ q }}" placeholder="Filter by action, detail or actor"><button class="btn" type="submit">Filter</button>{% if q %}<a class="btn ghost" href="/logs">Clear</a>{% endif %}</form>
+<section class="card flush">
+  {% if rows %}
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>When (UTC)</th><th>Actor</th><th>Action</th><th>Detail</th><th>Order</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td class="nowrap">{{ r.created_at | dt }}</td><td>{{ r.actor }}</td><td>{{ r.action }}</td><td>{{ r.detail }}</td><td>{% if r.order_id %}<a href="/orders/{{ r.order_id }}">#{{ r.order_id }}</a>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="empty">Nothing logged yet.</p>{% endif %}
+</section>
+{% endblock %}

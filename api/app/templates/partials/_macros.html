@@ -1,0 +1,2 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">{% endmacro %}
+{% macro chip(state) %}<span class="chip chip-{{ state }}">{{ state|label }}</span>{% endmacro %}

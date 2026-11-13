@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}System - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">System</h1><p class="muted mt-1">Is everything healthy? Version {{ version }}.</p></div>
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Health checks</h2></div>
+  <ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for c in checks %}<li class="px-4 py-3 flex flex-wrap items-start gap-3"><span class="chip chip-{{ 'ok' if c.status == 'ok' else ('warn' if c.status == 'warn' else 'bad') }} w-16 justify-center">{{ {'ok':'OK','warn':'Check','bad':'Problem'}[c.status] }}</span>
+    <div class="flex-1 min-w-[12rem]"><b>{{ c.name }}</b><div class="text-sm muted">{{ c.detail }}{% if c.fix %} <b>{{ c.fix }}</b>{% endif %}</div></div></li>{% endfor %}</ul></section>
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Automatic settings</h2></div>
+  <form method="post" action="/system/settings" class="panel-b grid sm:grid-cols-2 gap-3">{{ csrf() }}
+    <div class="sm:col-span-2"><label class="f" for="hb">Heartbeat address (uptime monitor)</label><input class="in" id="hb" name="heartbeat_url" value="{{ sys.heartbeat_url }}" placeholder="https://hc-ping.com/your-id">
+      <div class="help">Har 5 minute is address ko ping jata hai. Server band ho jaye to UptimeRobot / healthchecks.io tumhe alert bhejta hai (free). {% if sys.hb_ok %}Last ping OK: {{ sys.hb_ok[:16] }}.{% endif %}{% if sys.hb_err %} Last error: {{ sys.hb_err }}{% endif %}</div></div>
+    <div><label class="f" for="dh">Daily report hour (0-23)</label><input class="in" id="dh" name="digest_hour" value="{{ sys.digest_hour }}" inputmode="numeric"><span class="help" style="display:block">Roz kis ghante (0-23, apne local time) daily report aur backup chale.</span></div>
+    <label class="flex items-start gap-2 self-end"><input type="checkbox" name="customer_emails" {{ 'checked' if sys.customer_emails }} class="mt-1"><span>Customer ko shipped/delivered ka email bhejo (pehle Email page par mailbox connect karo)</span></label>
+    <div class="sm:col-span-2"><button class="btn btn-accent btn-sm">Save</button></div></form></section>
+<div class="grid lg:grid-cols-2 gap-6">
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Backups</h2>{% if can_backup %}<form method="post" action="/system/backup">{{ csrf() }}<button class="btn btn-ghost btn-sm">Back up now</button></form>{% endif %}</div>
+    <div class="panel-b">{% if backups %}<ul class="space-y-1.5 text-sm">{% for n, kb in backups %}<li class="flex justify-between gap-3"><a href="/system/backup/{{ n }}">{{ n }}</a><span class="muted num">{{ kb }} KB</span></li>{% endfor %}</ul>
+      {% else %}<p class="muted text-sm">{{ 'No backup yet. One is made automatically every day, the newest 7 are kept.' if can_backup else 'Automatic backups work for the SQLite database. For PostgreSQL use pg_dump.' }}</p>{% endif %}
+      <p class="help mt-2">To restore: stop the app, copy a backup over <code>cheapedeal.db</code>, start the app.</p></div></section>
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Read-only API</h2><form method="post" action="/system/api-key" onsubmit="return confirm('The old key will stop working. Continue?')">{{ csrf() }}<button class="btn btn-ghost btn-sm">New key</button></form></div>
+    <div class="panel-b text-sm grid gap-2"><div>Send <code>X-API-Key: {{ key }}</code> to:</div>
+      <ul class="space-y-1"><li><code>{{ base }}/api/v1/stats</code></li><li><code>{{ base }}/api/v1/products</code></li><li><code>{{ base }}/api/v1/orders?status=shipped</code></li><li><code>{{ base }}/api/v1/opportunities</code></li></ul>
+      <p class="help">Use it from your own website, a spreadsheet or n8n. It cannot change anything.</p></div></section>
+</div>
+{% endblock %}

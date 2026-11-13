@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Risk - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Order risk check</h1>
+  <p class="muted mt-1 max-w-[70ch]">Har paid order ko 0-100 ka score milta hai (fake email, adhura address, freight forwarder, ek hi address par alag naam, achanak bada order...). Score limit se upar jaye to order supplier ko nahi jaata: Approvals mein ruk jaata hai aur wajah likhi hoti hai. Chargeback se bachne ka sabse sasta tareeka.</p></div>
+<div class="grid lg:grid-cols-2 gap-6">
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Rules</h2></div>
+  <form method="post" action="/risk" class="panel-b grid gap-3">{{ csrf() }}
+    <label class="flex items-center gap-2"><input type="checkbox" name="risk_enabled" {{ 'checked' if cfg.enabled }}> Risk check ON</label>
+    <div><label class="f" for="rk-s">Hold score (1-100)</label><input class="in" id="rk-s" name="risk_hold_score" value="{{ cfg.limit }}" inputmode="numeric"><div class="help">Is score ya usse upar = order Approvals mein ruke. Chhota number = zyada strict.</div></div>
+    <div><label class="f" for="rk-c">Blocked countries</label><input class="in" id="rk-c" name="risk_blocked_countries" value="{{ cfg.countries }}" placeholder="PK, NG"><div class="help">2-letter codes. In deshon ke order hamesha ruk jayenge.</div></div>
+    <div><label class="f" for="rk-e">Blocked emails</label><textarea class="in" id="rk-e" name="risk_blocked_emails" style="min-height:4rem;font-family:inherit" placeholder="bad@x.com, @spam.com">{{ cfg.emails }}</textarea><div class="help">Poora email, ya @domain.com.</div></div>
+    <div><button class="btn btn-accent btn-sm">Save</button></div></form></section>
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Score wale orders</h2></div>
+  {% if held %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for o in held %}<li class="px-4 py-2.5 text-sm"><a href="/orders/{{ o.id }}"><b>#{{ o.store_order_number or o.id }}</b></a> <span class="chip {{ 'chip-bad' if o.risk_score >= cfg.limit else 'chip-warn' }}">{{ o.risk_score }}</span> <span class="muted">{{ o.status|label }}</span><div class="muted">{{ o.risk_reasons }}</div></li>{% endfor %}</ul>
+  {% else %}<p class="panel-b muted">Abhi kisi order par risk nahi mila.</p>{% endif %}</section></div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}AI Assistant - Cheape Deal{% endblock %}
+{% block livemode %}off{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">AI Assistant</h1>
+  <p class="muted mt-1 max-w-[75ch]">Apne business ya is software ke baare mein kuch bhi poochho, apni bhasha (Hindi/Hinglish/English) mein. Ye live halat (orders, alerts, settings) dekh kar jawab deta hai. Ye sirf padh aur samjha sakta hai: koi setting khud nahi badalta, aur customer ke naam/email/address kabhi AI ko nahi jate.</p></div>
+<div class="grid lg:grid-cols-5 gap-6">
+<section class="panel lg:col-span-3" aria-labelledby="ch-h"><div class="panel-h"><h2 id="ch-h" class="display text-lg font-bold">Chat</h2>
+  <span class="chip {{ 'chip-ok' if ai_on else 'chip-off' }}">{{ 'AI model ON' if ai_on else 'Built-in madad (AI set nahi)' }}</span></div>
+  <div class="panel-b grid gap-3">
+    <div id="chat-log" class="grid gap-2" style="min-height:14rem;max-height:26rem;overflow:auto" role="log" aria-live="polite">{% if ai.key_bad %}<div class="flash flash-error" role="alert">Saved API key padh nahi pa rahe (SECRET_KEY badal gayi). Neeche API key dobara daalo.</div>{% endif %}<div class="muted text-sm">Poochho: "abhi kya halat hai?", "order kyu atka hai?", "Start kaise karun?", "margin kaise badhaun?"</div></div>
+    <div class="flex flex-wrap gap-1.5" id="quick">
+      <button type="button" class="btn btn-ghost btn-sm" data-q="Abhi system ki halat batao aur kya dhyan dena chahiye?">Aaj ki halat</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-q="Mere alerts kya keh rahe hain aur kya karun?">Alerts samjhao</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-q="Profit badhane ke liye meri settings mein kya badlun?">Profit kaise badhaun</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-q="Live jaane se pehle kya check karna chahiye?">Live checklist</button></div>
+    <form id="chat-form" class="flex gap-2 items-end"><div class="flex-1"><label class="f" for="chat-in">Tumhara sawal</label><textarea class="in" id="chat-in" rows="2" maxlength="2000" required style="min-height:3rem;font-family:inherit" placeholder="Yahan likho..."></textarea></div><button class="btn btn-accent" id="chat-send">Bhejo</button></form>
+    <p class="help">Jawab AI model deta hai, galat bhi ho sakta hai: paise ya tax ke bade faisle se pehle khud check karo. Orders ke numbers, product ke naam, alerts aur settings (bina secret) AI provider ko jaate hain.</p></div></section>
+
+<section class="panel lg:col-span-2" aria-labelledby="ai-h"><div class="panel-h"><h2 id="ai-h" class="display text-lg font-bold">AI model jodo</h2></div>
+  {% if is_admin %}
+  <form method="post" action="/assistant/settings" class="panel-b grid gap-3">{{ csrf() }}
+    <div><label class="f" for="ai-u">Base URL</label><input class="in" id="ai-u" name="base_url" value="{{ ai.base_url }}" placeholder="https://api.openai.com/v1">
+      <div class="help">AI company ka API address. Ye us company ki website ke "API docs" mein milta hai. OpenAI-compatible ke liye aakhir mein <code>/v1</code> hota hai (<code>/chat/completions</code> khud lag jata hai). Free local model (Ollama) ke liye <code>http://localhost:11434/v1</code>. Neeche ke buttons se bhar sakte ho.</div>
+      <div class="flex flex-wrap gap-1 mt-1.5">{% for n,u,st in presets %}<button type="button" class="btn btn-ghost btn-sm" data-u="{{ u }}" data-st="{{ st }}">{{ n }}</button>{% endfor %}</div></div>
+    <div><label class="f" for="ai-k">API key</label><input class="in" id="ai-k" name="api_key" type="password" autocomplete="off" placeholder="{{ 'Saved. Khali chhodo to wahi rahegi.' if ai.has_key else 'sk-...' }}">
+      <div class="help">Us AI company ke dashboard (API keys section) se banao. Ye encrypt hokar tumhare apne server par rehti hai, kisi ko dikhti nahi. Local model (Ollama/LM Studio) ke liye khali chhod sakte ho. Key kabhi chat ya screenshot mein share mat karo.</div></div>
+    <div><label class="f" for="ai-m">Model(s)</label><input class="in" id="ai-m" name="model" value="{{ ai.model }}" placeholder="neeche 'Models fetch karo' dabao, ya naam likho (comma se alag)">
+      <div class="help">Ek ya zyada model ke naam, comma se alag (jaise <code>gpt-4o-mini, gpt-4o</code>). Sabse pehla main model hai; wo fail ho to agla apne aap use hota hai. Naam yaad nahi? Neeche <b>Models fetch karo</b> dabao: provider ke saare models ki list aa jayegi, jo chahiye tick karo.</div>
+      <div class="flex flex-wrap items-center gap-2 mt-2"><button type="button" class="btn btn-accent btn-sm" id="fm">Models fetch karo</button><span class="help" id="fm-st" style="display:inline"></span></div>
+      <div id="fm-box" class="mt-2" hidden>
+        <input class="in" id="fm-q" type="search" placeholder="Models mein khojo..." aria-label="Models mein khojo">
+        <div class="flex flex-wrap gap-1.5 mt-1.5"><button type="button" class="btn btn-ghost btn-sm" id="fm-all">Saare chat models chuno</button><button type="button" class="btn btn-ghost btn-sm" id="fm-none">Sab hatao</button></div>
+        <div id="fm-list" class="mt-1.5" style="max-height:15rem;overflow:auto;border:1px solid #D8DCD5;border-radius:6px;padding:.4rem .6rem"></div>
+        <div class="help">Embedding, image, audio jaise models chat ke kaam ke nahi hote: "Saare chat models" unhe chhod deta hai.</div></div></div>
+    <div><label class="flex items-center gap-2"><input type="checkbox" name="auto" {{ 'checked' if ai.auto }}> <span class="f" style="margin:0">Auto mode (poora autonomous)</span></label>
+      <div class="help">ON ho to: (1) chune hue saare models bari-bari se kaam karte hain, taaki ek par load ya limit na aaye, fail hone par agla chalta hai; (2) <b>AI Advisor</b> agent har ghante poore system ko dekhkar Hinglish mein salah likhta hai (jab Start chalu ho). Sirf padhta aur batata hai, kuch badalta nahi. Start dabane par ye apne aap ON ho jata hai.</div></div>
+    <div><label class="f" for="ai-s">API style</label><select class="in" id="ai-s" name="style"><option value="openai" {{ 'selected' if ai.style == 'openai' }}>OpenAI-compatible (zyadatar providers)</option><option value="anthropic" {{ 'selected' if ai.style == 'anthropic' }}>Anthropic (Claude)</option></select>
+      <div class="help">Zyadatar providers (OpenAI, OpenRouter, Groq, Together, Ollama, LM Studio...) "OpenAI-compatible" hote hain. Sirf Anthropic ki apni API ke liye "Anthropic" chuno.</div></div>
+    <div class="flex flex-wrap gap-2"><button class="btn btn-accent btn-sm">Save aur test</button><button class="btn btn-ghost btn-sm" formaction="/assistant/test" formnovalidate>Sirf test</button><button class="btn btn-ghost btn-sm" formaction="/assistant/review" formnovalidate>AI se abhi salah lo</button></div></form>
+  {% else %}<p class="panel-b muted">AI settings sirf admin badal sakta hai.</p>{% endif %}</section></div>
+<section class="panel mt-6" aria-labelledby="br-h"><div class="panel-h"><h2 id="br-h" class="display text-lg font-bold">AI ki taza salah</h2>{% if brief_at %}<span class="muted text-sm">{{ brief_at }}</span>{% endif %}</div>
+  <div class="panel-b">{% if brief %}<div class="text-sm" style="white-space:pre-wrap">{{ brief }}</div>{% else %}<p class="muted text-sm">Abhi koi salah nahi. AI model jodo, Auto mode ON karo aur Start dabao: AI Advisor har ghante khud likhega. Turant chahiye to "AI se abhi salah lo" dabao.</p>{% endif %}</div></section>
+<script>
+(function(){
+  var log=document.getElementById('chat-log'), form=document.getElementById('chat-form'), inp=document.getElementById('chat-in'), btn=document.getElementById('chat-send');
+  var csrf=document.body.getAttribute('hx-headers'); try{csrf=JSON.parse(csrf)['X-CSRF-Token'];}catch(e){csrf='';}
+  var hist=[]; try{hist=JSON.parse(sessionStorage.getItem('cd-chat')||'[]');}catch(e){}
+  function add(role,text,note,tag,bad){var d=document.createElement('div'); d.className='text-sm'; d.style.cssText='white-space:pre-wrap;padding:.5rem .7rem;border-radius:6px;max-width:92%;'+(role==='user'?'background:#EEF0F5;justify-self:end':'background:#F6F3FF;border:1px solid #E1DAFF');
+    if(tag){var t=document.createElement('div'); t.className='help'; t.style.cssText='margin:0 0 .25rem;font-weight:700;'+(bad?'color:var(--bad)':''); t.textContent=tag; d.appendChild(t);}
+    d.appendChild(document.createTextNode(text)); if(note){var n=document.createElement('div'); n.style.cssText='margin-top:.4rem;padding:.4rem .5rem;border-radius:5px;font-size:.8rem;'+(bad?'background:#FDECEC;color:#9B1C1C;border:1px solid #F5C2C2':'color:#666'); n.textContent=note; d.appendChild(n);} log.appendChild(d); log.scrollTop=log.scrollHeight; return d;}
+  if(hist.length){log.innerHTML=''; hist.forEach(function(m){add(m.role,m.content);});}
+  function send(q){
+    if(!q.trim())return; add('user',q); inp.value=''; btn.disabled=true; var wait=add('assistant','...');
+    fetch('/assistant/ask',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({message:q,history:hist})})
+      .then(function(r){return r.json();}).then(function(j){wait.remove(); add('assistant',j.answer||'(khali jawab)',j.note,j.mode==='ai'?'AI jawab ('+(j.model||'')+')':'Built-in jawab (AI se nahi)',!!j.error); if(j.mode==='ai'){hist.push({role:'user',content:q},{role:'assistant',content:j.answer||''});} hist=hist.slice(-20); try{sessionStorage.setItem('cd-chat',JSON.stringify(hist));}catch(e){}})
+      .catch(function(){wait.remove(); add('assistant','Server tak pahunch nahi paye. Dobara try karo.');}).then(function(){btn.disabled=false; inp.focus();});
+  }
+  form.addEventListener('submit',function(e){e.preventDefault(); send(inp.value);});
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); send(inp.value);}});
+  document.getElementById('quick').addEventListener('click',function(e){var q=e.target.getAttribute('data-q'); if(q)send(q);});
+  document.querySelectorAll('[data-u]').forEach(function(b){b.addEventListener('click',function(){document.getElementById('ai-u').value=b.dataset.u; document.getElementById('ai-s').value=b.dataset.st;});});
+  (function(){
+    var inp=document.getElementById('ai-m'), box=document.getElementById('fm-box'), list=document.getElementById('fm-list'), st=document.getElementById('fm-st'), q=document.getElementById('fm-q'), all=[];
+    function chosen(){return inp.value.split(/[,\n]+/).map(function(x){return x.trim();}).filter(Boolean);}
+    function sync(){var v=[].slice.call(list.querySelectorAll('input:checked')).map(function(c){return c.value;}); var extra=chosen().filter(function(x){return !all.some(function(m){return m.id===x;});}); inp.value=v.concat(extra).join(', ');}
+    function draw(){var sel=chosen(), f=(q.value||'').toLowerCase(); list.innerHTML='';
+      all.filter(function(m){return !f||m.id.toLowerCase().indexOf(f)>-1;}).forEach(function(m){var l=document.createElement('label'); l.style.cssText='display:flex;gap:.5rem;align-items:center;padding:.15rem 0;font-size:.85rem'+(m.chat?'':';opacity:.55');
+        var c=document.createElement('input'); c.type='checkbox'; c.value=m.id; c.checked=sel.indexOf(m.id)>-1; c.addEventListener('change',sync); l.appendChild(c); l.appendChild(document.createTextNode(m.id+(m.chat?'':'  (chat nahi)'))); list.appendChild(l);});}
+    document.getElementById('fm').addEventListener('click',function(){
+      var b=this; b.disabled=true; st.textContent='Provider se list la raha hoon...';
+      fetch('/assistant/models',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({base_url:document.getElementById('ai-u').value,api_key:document.getElementById('ai-k').value,style:document.getElementById('ai-s').value})})
+        .then(function(r){return r.json();}).then(function(j){
+          if(!j.ok){st.textContent=j.error||'Nahi mila'; st.style.color='var(--bad)'; return;}
+          all=j.models; st.style.color=''; st.textContent=all.length+' models mile. Jo chahiye tick karo, phir "Save aur test".'; box.hidden=false; q.value=''; draw();})
+        .catch(function(){st.textContent='Server tak pahunch nahi paye.'; st.style.color='var(--bad)';}).then(function(){b.disabled=false;});});
+    q.addEventListener('input',draw);
+    document.getElementById('fm-all').addEventListener('click',function(){var v=all.filter(function(m){return m.chat;}).map(function(m){return m.id;}); inp.value=v.join(', '); draw();});
+    document.getElementById('fm-none').addEventListener('click',function(){inp.value=''; draw();});
+  })();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Website jodo - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">Website jodo (Vercel + Render)</h1>
+  <p class="muted mt-1 max-w-[72ch]">Yahan se tumhari dukaan internet par chadhti hai: pages Vercel par, ye server Render par, code GitHub par, database Neon par (sab free). Kuch bharna nahi: bas chaaron mein browser se login karo, baaki project khud karta hai.</p></div>
+
+{% if on_render %}<div class="panel mb-4 max-w-[860px]"><div class="panel-b text-sm">Ye copy khud Render par chal rahi hai, isliye yahan Start seedha engine chalata hai.</div></div>{% else %}
+{% include "partials/_cli.html" %}
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">Start / check</h2>
+  <span class="chip {{ {'ok':'chip-ok','error':'chip-warn','running':'chip-dry'}.get(lstate,'chip-off') }}">{{ {'ok':'sab chalu','error':'rukavat','running':'check chal raha hai','idle':'abhi chalaya nahi'}.get(lstate,lstate) }}</span></div>
+  <div class="panel-b grid gap-3">
+    <p class="help">Start dabate hi (upar ya yahan) project dekhta hai ki Render par backend aur Vercel par website pehle se hai ya nahi. Hai to wahi use karta hai; nahi hai to Neon par database, GitHub par code, Render par server aur Vercel par dukaan bana kar jodta hai, phir kaam shuru. CJ key API Keys page par ek baar daalni hai.</p>
+    <form method="post" action="/website/connect/live" class="grid gap-2">{{ csrf() }}
+      <label class="flex gap-2 items-start text-sm"><input type="checkbox" name="live" value="1" {{ 'checked' if live }} style="margin-top:.2rem"><span><b>Live: asli orders CJ ko bhejo.</b> Band = Rehearsal (sab chalta hai par CJ ko asli order nahi jata). Pehle ek test order dekho. ON hone par CJ wallet se paisa katega.</span></label>
+      <div><button class="btn btn-ghost btn-sm">Ye choice save karo</button></div></form>
+    <div class="flex flex-wrap gap-2 items-center"><form method="post" action="/website/connect/launch">{{ csrf() }}<button class="btn btn-accent btn-sm">Abhi check karo aur host karo (Start jaisa)</button></form>
+      <form method="post" action="/engine/start">{{ csrf() }}<input type="hidden" name="next" value="/website/connect"><input type="hidden" name="local" value="1"><button class="btn btn-ghost btn-sm" title="Render/Vercel ko chhod kar sirf is computer par engine chalao">Sirf is computer par Start</button></form>
+      <form method="post" action="/website/connect/preflight">{{ csrf() }}<button class="btn btn-ghost btn-sm" title="Kuch badle bina dekhta hai ki Start ke liye kya ready hai aur kya nahi">Start se pehle jaanch</button></form>
+      {% if v.host_repo and v.host_render_url %}<form method="post" action="/website/connect/update">{{ csrf() }}<button class="btn btn-ghost btn-sm" title="Is computer ka naya code GitHub par bhejta hai; Render use build karke chalata hai">Render par naya code bhejo</button></form>{% endif %}
+      {% if has_admin %}<form method="post" action="/website/connect/admin-password">{{ csrf() }}<button class="btn btn-ghost btn-sm">Render admin password dikhao</button></form>{% endif %}</div>
+    {% if det and det["items"] %}<div class="text-sm grid gap-1 rounded-lg p-3" style="background:#F6F7F4"><b>Detection: kya pehle se bana hai</b> <span class="help">({{ det.when }}) &mdash; Start jo nahi mila wo khud banata hai</span>
+      {% for i in det["items"] %}<div><span class="chip {{ 'chip-ok' if i.state == 'found' else ('chip-warn' if i.state == 'missing' else 'chip-off') }}">{{ 'mila' if i.state == 'found' else ('nahi mila' if i.state == 'missing' else 'pata nahi') }}</span> <b>{{ i.label }}</b>: {{ i.detail }}</div>{% endfor %}</div>{% endif %}
+    {% if pre and pre.checks %}<div class="text-sm grid gap-1 rounded-lg p-3" style="background:#F6F7F4"><b>Start se pehle jaanch</b> <span class="help">({{ pre.when }})</span>
+      {% for i in pre.checks %}<div><span class="chip {{ 'chip-ok' if i.ok else ('chip-off' if i.ok is none else 'chip-warn') }}">{{ 'OK' if i.ok else ('-' if i.ok is none else 'ruka') }}</span> <b>{{ i.name }}</b>: {{ i.detail }}{% if i.fix %}<br><span class="help">&rarr; {{ i.fix }}</span>{% endif %}</div>{% endfor %}</div>{% endif %}
+    {% if rver and rver != lver %}<div class="chip chip-warn" style="display:inline-block">Render par v{{ rver }}, is computer par v{{ lver }}: 'Render par naya code bhejo' dabao.</div>{% endif %}
+    {% if llog %}<ol class="text-sm grid gap-1" style="list-style:none;padding:0">{% for lv, m in llog %}<li style="color:{{ {'ok':'#1E7A3A','warn':'#8A5A00','error':'#B3261E'}.get(lv,'inherit') }}">{{ {'ok':'&#10003;','warn':'!','error':'&#10007;'}.get(lv,'&middot;')|safe }} {{ m }}</li>{% endfor %}</ol>{% if lstate == 'error' %}<p class="mt-2 text-sm"><a class="btn btn-ghost btn-sm" href="/diagnostics?cat=cli&h=1">Diagnostics mein poori wajah dekho</a> <a class="btn btn-ghost btn-sm" href="/diagnostics/download?h=6">Report download</a></p>{% endif %}{% endif %}
+    {% if lstate == 'ok' %}<div class="help"><b>Dhyan:</b> Render par bane server ka apna alag database hai: wahan products khali hote hain. <a class="underline" href="{{ v.host_render_url }}" target="_blank" rel="noopener">{{ v.host_render_url }}</a> par admin login karke Import products se products daalo. Dukaan wahi products dikhati hai.</div>{% endif %}
+  </div></section>
+{% if lstate == 'running' %}<script>setTimeout(function(){location.reload()},4000)</script>{% endif %}
+{% endif %}
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">Abhi ye project kaunsi website use kar raha hai</h2></div>
+  <div class="panel-b text-sm grid gap-1"><div>Dukaan (Vercel): <b>{{ v.host_vercel_url or 'abhi koi nahi' }}</b></div><div>Backend (Render): <b>{{ v.host_render_url or 'abhi koi nahi' }}</b></div><div>Code (GitHub): <b>{{ v.host_repo or 'abhi koi nahi' }}</b></div>
+    <p class="help">Dukaan deploy hote hi uska address project mein save ho jata hai (emails ke links isi se bante hain).</p></div></section>
+{% endblock %}

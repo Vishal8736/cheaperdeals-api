@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Alerts - Cheape Deal{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4"><h1 class="display text-3xl font-extrabold">Alerts and history</h1>
+  <div class="flex gap-2" role="tablist" aria-label="View">
+    <a class="btn btn-sm {{ '' if tab=='alerts' else 'btn-ghost' }}" role="tab" aria-selected="{{ 'true' if tab=='alerts' else 'false' }}" href="/alerts">Alerts</a>
+    <a class="btn btn-sm {{ '' if tab=='audit' else 'btn-ghost' }}" role="tab" aria-selected="{{ 'true' if tab=='audit' else 'false' }}" href="/alerts?tab=audit">Audit log</a></div></div>
+
+{% if tab == 'alerts' %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+  <div class="flex gap-2 text-sm"><a class="underline {{ 'font-bold' if show!='all' }}" href="/alerts">Open</a><span class="muted">or</span><a class="underline {{ 'font-bold' if show=='all' }}" href="/alerts?show=all">All</a></div>
+  {% if alerts %}<form method="post" action="/alerts/resolve-all">{{ csrf() }}<button class="btn btn-ghost btn-sm">Mark all as done</button></form>{% endif %}</div>
+<section class="panel">
+{% if alerts %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">
+  {% for a in alerts %}<li class="px-4 py-3 flex flex-wrap gap-3 items-start justify-between {{ 'opacity-60' if a.resolved }}">
+    <div class="flex gap-3 min-w-0"><span class="chip chip-{{ 'bad' if a.level=='error' else ('warn' if a.level=='warning' else 'ok') }} self-start">{{ a.level }}</span>
+      <div class="min-w-0"><div class="break-words">{{ a.message }}</div><div class="text-xs muted mt-0.5">{{ a.source }} at {{ a.created_at|dt }}{% if a.order_id %}, <a class="underline" href="/orders/{{ a.order_id }}">open order</a>{% endif %}</div></div></div>
+    {% if not a.resolved %}<form method="post" action="/alerts/{{ a.id }}/resolve">{{ csrf() }}<button class="btn btn-ghost btn-sm">Done</button></form>{% else %}<span class="muted text-sm">Done</span>{% endif %}</li>{% endfor %}
+</ul>{% else %}<p class="panel-b muted">No open alerts. When something fails, the reason and the order show up here and on Telegram.</p>{% endif %}
+</section>
+{% else %}
+<form class="flex gap-2 mb-3" method="get" action="/alerts"><input type="hidden" name="tab" value="audit"><label class="sr-only" for="ord">Order ID</label>
+  <input class="in" style="max-width:14rem" id="ord" name="order" value="{{ order }}" placeholder="Filter by order ID" inputmode="numeric"><span class="help" style="display:block">Sirf is order ID ke alerts dikhao.</span><button class="btn btn-ghost btn-sm">Filter</button></form>
+<section class="panel"><div class="overflow-x-auto"><table class="t"><thead><tr><th>When</th><th>What happened</th><th>Order</th><th>By</th></tr></thead><tbody>
+{% for l in logs %}<tr><td class="muted whitespace-nowrap">{{ l.created_at|dt('%d %b, %H:%M:%S') }}</td>
+  <td><span class="font-semibold">{{ l.action|replace('_',' ')|capitalize }}</span>{% if l.to_state %} <span class="muted">({{ l.from_state|label if l.from_state else 'new' }} to {{ l.to_state|label }})</span>{% endif %}{% if l.detail %}<div class="text-sm muted break-words" style="max-width:48rem">{{ l.detail }}</div>{% endif %}</td>
+  <td class="num">{% if l.entity=='order' %}<a class="underline" href="/orders/{{ l.entity_id }}">{{ l.entity_id }}</a>{% else %}-{% endif %}</td><td>{{ l.actor }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Nothing logged yet.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endif %}
+{% endblock %}

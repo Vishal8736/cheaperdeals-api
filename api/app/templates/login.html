@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Sign in - Cheape Deal</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+<style>.wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.label-card{width:100%;max-width:400px;background:#fff;border:1px solid var(--line);border-radius:4px;box-shadow:0 0 0 6px var(--paper),0 0 0 8px var(--ink)}</style>
+</head><body>
+<div class="wrap"><div class="label-card">
+  <div style="background:var(--accent);padding:1.1rem 1.25rem;border-bottom:2px dashed var(--ink);display:flex;align-items:center;gap:.8rem">
+    <span class="tagmark" style="background:var(--ink)"></span><span class="display" style="font-size:1.6rem;font-weight:800;color:var(--accent-ink)">Cheape Deal</span></div>
+  <form method="post" action="/login" style="padding:1.25rem" autocomplete="on">
+    <h1 class="display" style="font-size:1.35rem;font-weight:700;margin:0 0 1rem">Sign in to your console</h1>
+    {% if error %}<div class="flash flash-error" role="alert">{{ error }}</div>{% endif %}
+    <label class="f" for="u">Username</label><input class="in" id="u" name="username" autocomplete="username" required autofocus style="margin-bottom:.9rem"><span class="help" style="display:block">Wahi username jo terminal mein start karte time dikha tha (default: admin).</span>
+    <label class="f" for="p">Password</label><input class="in" id="p" name="password" type="password" autocomplete="current-password" required style="margin-bottom:1.1rem"><span class="help" style="display:block">Tumhara admin password. Bhool gaye to terminal mein: python scripts/local_run.py --reset-password</span>
+    <label class="f" for="c">2FA code <span class="muted" style="font-weight:400">(only if you turned it on)</span></label><input class="in" id="c" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="margin-bottom:1.1rem"><span class="help" style="display:block">Agar 2FA ON hai to authenticator app ka 6-digit code. Warna khali chhodo.</span>
+    <button class="btn btn-accent" style="width:100%">Sign in</button>
+  </form></div></div>
+</body></html>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Finance - Cheape Deal{% endblock %}
+{% block content %}
+{% set t = r.total %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+  <div><h1 class="display text-3xl font-extrabold">Finance</h1>
+    <p class="muted mt-1 max-w-[70ch]">Asli profit: revenue minus refunds, product cost, shipping aur payment fees. Product cost wo hai jo order aane ke time supplier ka price tha. Shipping hamara andaaza hai jab tak tum order par asli kharcha nahi likhte.</p></div>
+  <a class="btn btn-ghost btn-sm" href="/finance/export.csv">Download CSV</a>
+</div>
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+  <div class="tile"><div><div class="v num">{{ t.revenue|money }}</div><div class="k">Revenue ({{ t.orders }} orders)</div></div></div>
+  <div class="tile ok"><div><div class="v num">{{ t.net|money }}</div><div class="k">Net profit ({{ r.margin }}%)</div></div></div>
+  <div class="tile {{ 'warn' if r.tied_up > 0 }}"><div><div class="v num">{{ r.tied_up|money }}</div><div class="k">Paisa supplier ke paas phansa</div></div></div>
+  <a class="tile {{ 'warn' if r.open_returns }}" href="/returns"><div><div class="v num">{{ r.open_returns }}</div><div class="k">Open returns</div></div></a>
+</section>
+{% if r.ship_estimated %}<p class="muted text-sm mb-4">{{ r.ship_estimated }} order(s) mein shipping cost andaaza hai. Order page par asli kharcha likho to profit exact ho jayega.</p>{% endif %}
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Mahine ke hisaab se</h2></div>
+  {% if r.months %}<div class="overflow-x-auto"><table class="t"><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Revenue</th><th class="right">Refunds</th><th class="right">Product cost</th><th class="right">Shipping</th><th class="right">Fees</th><th class="right">Net profit</th></tr></thead><tbody>
+  {% for k, m in r.months %}<tr><td>{{ k }}</td><td class="right num">{{ m.orders }}</td><td class="right num">{{ m.revenue|money }}</td><td class="right num">{{ m.refund|money }}</td><td class="right num">{{ m.cost|money }}</td><td class="right num">{{ m.ship|money }}</td><td class="right num">{{ m.fee|money }}</td><td class="right num"><b>{{ m.net|money }}</b></td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="panel-b muted">Abhi koi order nahi.</p>{% endif %}</section>
+<section class="panel mb-6"><div class="panel-h"><h2 class="display text-lg font-bold">Har order ka profit (latest 100)</h2></div>
+  {% if r.rows %}<div class="overflow-x-auto"><table class="t"><thead><tr><th>Order</th><th class="right">Revenue</th><th class="right">Cost</th><th class="right">Shipping</th><th class="right">Fees</th><th class="right">Refund</th><th class="right">Net</th><th></th></tr></thead><tbody>
+  {% for x in r.rows %}{% set o = x.order %}<tr><td><a href="/orders/{{ o.id }}">#{{ o.store_order_number or o.id }}</a><div class="text-xs muted">{{ o.status|label }}</div></td>
+    <td class="right num">{{ x.revenue|money }}</td><td class="right num">{{ x.cost|money }}</td><td class="right num">{{ x.ship|money }}{% if not o.ship_cost_actual and x.ship > 0 %}<span class="muted">*</span>{% endif %}</td><td class="right num">{{ x.fee|money }}</td>
+    <td class="right num">{{ x.refund|money }}</td><td class="right num"><b style="color:{{ 'var(--ok)' if x.net >= 0 else 'var(--bad)' }}">{{ x.net|money }}</b></td><td><a href="/orders/{{ o.id }}/invoice" target="_blank" rel="noopener">Invoice</a></td></tr>{% endfor %}</tbody></table></div>
+  <p class="px-4 pb-3 text-xs muted">* shipping andaaza hai.</p>{% else %}<p class="panel-b muted">Abhi koi order nahi.</p>{% endif %}</section>
+<section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Business details (invoice aur fees ke liye)</h2></div>
+  <form method="post" action="/finance/business" class="panel-b grid sm:grid-cols-2 gap-3">{{ csrf() }}
+    <div><label class="f" for="b-n">Business name</label><input class="in" id="b-n" name="business_name" value="{{ b.business_name }}"><span class="help" style="display:block">Tumhare business ka naam: invoice ke upar chhapta hai.</span></div>
+    <div><label class="f" for="b-g">GSTIN / tax number (optional)</label><input class="in" id="b-g" name="business_gstin" value="{{ b.business_gstin }}"><span class="help" style="display:block">GST ya tax number (optional). Invoice par dikhega. Tax ke rules CA se pucho.</span></div>
+    <div class="sm:col-span-2"><label class="f" for="b-a">Address</label><textarea class="in" id="b-a" name="business_address" style="min-height:4rem;font-family:inherit">{{ b.business_address }}</textarea><span class="help" style="display:block">Poora address jo invoice par dikhana hai.</span></div>
+    <div><label class="f" for="b-p">Invoice number prefix</label><input class="in" id="b-p" name="invoice_prefix" value="{{ b.invoice_prefix }}"><span class="help" style="display:block">Invoice number ke aage ka code (jaise INV-). Number = prefix + order number.</span></div>
+    <div><label class="f" for="b-f">Payment gateway fee (%)</label><input class="in" id="b-f" name="payment_fee_pct" value="{{ b.payment_fee_pct }}" inputmode="decimal"><div class="help">Stripe/PayPal/Razorpay ka % (usually 2-3%).</div></div>
+    <div class="sm:col-span-2"><button class="btn btn-accent btn-sm">Save</button> <span class="help">Invoice sirf ek simple bill hai. Tax ke rules (GST, LUT, export) ke liye apne CA se pucho.</span></div></form></section>
+{% endblock %}

@@ -1,0 +1,89 @@
+{
+  "name": "Cheape Deal 04 - Stock and price sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 8
+            }
+          ]
+        }
+      },
+      "id": "trigger",
+      "name": "Every 8 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/internal/jobs/stock-price-sync",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Key",
+              "value": "={{ $env.CHEAPEDEAL_INTERNAL_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "call",
+      "name": "Call Cheape Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "content": "**Cheape Deal 04 - Stock and price sync**\n\nHides out-of-stock products, reprices when supplier cost changes, and hides anything whose margin would fall under the minimum.\n\nSet this workflow's *Error Workflow* (Settings) to 'Cheape Deal 05 - Error handler', then switch it to Active.",
+        "height": 180,
+        "width": 420
+      },
+      "id": "note--20",
+      "name": "Read me",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -260
+      ]
+    }
+  ],
+  "connections": {
+    "Every 8 hours": {
+      "main": [
+        [
+          {
+            "node": "Call Cheape Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

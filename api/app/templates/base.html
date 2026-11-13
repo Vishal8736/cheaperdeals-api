@@ -1,0 +1,96 @@
+{% from "partials/_macros.html" import csrf with context %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{% block title %}Cheape Deal{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tailwind.css">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28'%3E%3Cpath d='M12 0l12 6v22H0V6z' fill='%236A4CFF'/%3E%3Ccircle cx='12' cy='9' r='3' fill='%23FFFFFF'/%3E%3C/svg%3E">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#6A4CFF">
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'>
+{% set nav = [
+ ("dashboard","/","Dashboard","Home","home"),("setup","/setup","Setup wizard","Setup","setup"),("keys","/keys","API Keys + Ping","Keys","connect"),("platforms","/platforms","Platforms (free keys)","Platforms","connect"),("assistant","/assistant","AI Models + Assistant","AI","assistant"),("playbook","/playbook","Playbook (strategies)","Playbook","playbook"),("agents","/agents","Agents","Agents","agents"),("orders","/orders","Orders","Orders","orders"),("analytics","/analytics","Analytics","Stats","analytics"),("strategy","/strategy","Strategy","Plan","strategy"),("approvals","/approvals","Approvals","Approve","approve"),("risk","/risk","Risk check","Risk","risk"),("finance","/finance","Finance","Money","finance"),("returns","/returns","Returns","Returns","returns"),
+ ("products","/products","Products","Products","products"),("catalog","/catalog","Import products","Import","catalog"),("connect","/connect","Connect","Connect","connect"),("email","/email","Email (apna mailbox)","Email","alerts"),("website","/website","Website (dukaan)","Website","products"),("support","/support","Customer support","Support","alerts"),
+ ("alerts","/alerts","Alerts","Alerts","alerts"),("system","/system","System","System","system"),("diagnostics","/diagnostics","Diagnostics (logs)","Logs","alerts"),("users","/users","Users and 2FA","Users","users"),("settings","/settings","Settings","Settings","settings"),("guide","/guide","Guide (Hinglish)","Guide","guide")] %}
+{% set icons = {"home":'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',"agents":'<circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.6 3-6 7-6s7 2.4 7 6M3 5l2 2M21 5l-2 2"/>',"orders":'<path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10"/>',"approve":'<path d="M5 12l4.5 4.5L19 7"/>',"products":'<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',"catalog":'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',"connect":'<path d="M9 7H7a4 4 0 100 8h2M15 7h2a4 4 0 110 8h-2M8 11h8"/>',"analytics":'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',"sourcing":'<path d="M3 7h13l2 3h3v7h-2M3 7v10h2M7 17a2 2 0 104 0M15 17a2 2 0 104 0M9 17h6"/>',"setup":'<path d="M5 12l4 4 10-10"/>',"assistant":'<path d="M4 5h16v11H9l-5 4zM8 9h8M8 12h5"/>',"playbook":'<path d="M4 4h12a3 3 0 013 3v13H7a3 3 0 01-3-3zM8 9h7M8 13h7"/>',"risk":'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM12 9v4M12 16h.01"/>',"finance":'<path d="M4 20h16M6 16V9M12 16V5M18 16v-4"/>',"returns":'<path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/>',"strategy":'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',"alerts":'<path d="M6 17V11a6 6 0 1112 0v6l1.5 2h-15zM10 21h4"/>',"users":'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M17 11a3 3 0 100-6M21 20c0-2.5-1.5-4-4-4.6"/>',"guide":'<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19V5M9 8h6M9 12h6"/>',"system":'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',"settings":'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>'} %}
+{% set groups = {"dashboard":"Operate","products":"Catalog","alerts":"System"} %}
+<div class="md:flex min-h-screen">
+  <aside class="rail hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky md:top-0 md:h-screen p-3 overflow-y-auto">
+    <div class="flex items-center gap-3 px-2 py-3 mb-1"><span class="tagmark" aria-hidden="true"></span><span class="display text-xl font-extrabold text-white">Cheape Deal</span></div>
+    <form method="get" action="/search" class="px-1 mb-2" role="search"><label class="sr-only" for="gs">Search everything</label><input id="gs" name="q" placeholder="Search..." class="in" style="min-height:2.1rem;background:#242833;border-color:#343A48;color:#fff"></form>
+    <nav aria-label="Main" class="flex flex-col gap-0.5">
+      {% for key,href,label,short,ic in nav %}
+      {% if key in groups %}<div class="sec">{{ groups[key] }}</div>{% endif %}
+      <a class="nav" href="{{ href }}" {% if active==key or (key=='orders' and active=='order_detail') or (key=='strategy' and active=='strategy_product') or (key=='connect' and active=='connect_form') %}aria-current="page"{% endif %}>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons[ic]|safe }}</svg>{{ label }}</span>
+        {% if key=='approvals' and nav_approvals %}<span class="badge">{{ nav_approvals }}</span>{% endif %}
+        {% if key=='orders' and nav_failed %}<span class="badge" title="Orders that need you">{{ nav_failed }}</span>{% endif %}{% if key=='diagnostics' and nav_errors %}<span class="badge" title="Errors in last 24h">{{ nav_errors }}</span>{% endif %}
+      </a>
+      {% endfor %}
+    </nav>
+    <form method="post" action="/logout" class="mt-auto px-2 pt-3 pb-2">{{ csrf() }}
+      <div class="text-sm text-[#9BA39A] mb-2">Signed in as {{ user }}</div>
+      <div class="flex gap-1 mb-2" role="group" aria-label="Language"><button formaction="/lang" name="lang" value="hi" class="btn btn-ghost btn-sm" style="flex:1;color:#E9ECE8;border-color:#4a5156" formnovalidate>Hinglish</button><button formaction="/lang" name="lang" value="en" class="btn btn-ghost btn-sm" style="flex:1;color:#E9ECE8;border-color:#4a5156" formnovalidate>English</button><input type="hidden" name="next" value="{{ request.url.path }}"></div>
+      <button class="btn btn-ghost btn-sm w-full" style="color:#E9ECE8;border-color:#4a5156">Sign out</button>
+    </form>
+  </aside>
+
+  <div class="flex-1 min-w-0">
+    <div id="live-root" data-live="{% block livemode %}on{% endblock %}">
+    <div class="strip {{ 'strip-paused' if paused else ('strip-dry' if dry_run else 'strip-live') }}" role="status" id="engine-strip">
+      {% if paused %}
+      <span><b>ROKA HUA.</b> Kuch bhi supplier ko nahi ja raha. Chalane ke liye Start dabao.</span>
+      <form method="post" action="/engine/start">{{ csrf() }}<input type="hidden" name="next" value="{{ request.url.path }}"><button class="btn btn-sm btn-accent" style="min-width:7.5rem">&#9654; Start</button></form>
+      {% else %}
+      <span><span class="dot"></span>{% if dry_run %}<b>CHAL RAHA HAI (Rehearsal)</b>. Orders process hote hain par asli supplier ko nahi jaate. <a href="/settings#go-live" style="text-decoration:underline">Live jao</a>{% else %}<b>CHAL RAHA HAI (LIVE)</b>. Naye orders apne aap supplier ko ja rahe hain.{% endif %}</span>
+      <form method="post" action="/engine/stop" onsubmit="return confirm('Sab kuch rok dein? Naye orders Start dabane tak wait karenge.')">{{ csrf() }}<input type="hidden" name="next" value="{{ request.url.path }}"><button class="btn btn-sm" style="min-width:7.5rem;background:#B3261E;color:#fff;border-color:#B3261E">&#9632; Stop</button></form>
+      {% endif %}
+    </div>
+
+    <main class="px-4 md:px-8 py-6 max-w-[1180px]">
+      {% for kind,msg in flashes %}<div class="flash flash-{{ kind }}" role="alert">{{ msg }}</div>{% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+    </div>
+  </div>
+</div>
+<a id="ask-ai" href="/assistant" aria-label="AI Assistant se poochho">AI se poochho</a>
+<nav class="bottomnav" aria-label="Main (mobile)">
+  {% for key,href,label,short,ic in nav %}
+  <a href="{{ href }}" {% if active==key or (key=='orders' and active=='order_detail') or (key=='connect' and active=='connect_form') %}aria-current="page"{% endif %}>{{ short }}
+    {% if key=='approvals' and nav_approvals %}<span class="badge">{{ nav_approvals }}</span>{% endif %}
+    {% if key=='orders' and nav_failed %}<span class="badge">{{ nav_failed }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+<script>
+(function(){
+  // Live mode: the page quietly re-reads itself every few seconds. It never touches a page while you are typing.
+  var root=document.getElementById('live-root'); if(!root||root.dataset.live==='off')return;
+  var dirty=false, busy=false;
+  document.addEventListener('input',function(e){ if(root.contains(e.target)) dirty=true; },true);
+  var tag=document.createElement('div'); tag.id='live-tag'; tag.setAttribute('aria-hidden','true'); tag.textContent='\u25CF Live'; document.body.appendChild(tag);
+  function typing(){ var a=document.activeElement; return a && root.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); }
+  function tick(){
+    if(document.hidden||busy||dirty||typing()||document.querySelector('details[open]'))return;
+    busy=true; tag.className='on';
+    fetch(location.href,{headers:{'X-Live':'1'},credentials:'same-origin',cache:'no-store'}).then(function(r){ if(r.redirected&&/\/login/.test(r.url)){location.href=r.url;return null;} return r.ok?r.text():null; }).then(function(t){
+      if(!t)return; var d=new DOMParser().parseFromString(t,'text/html'), n=d.getElementById('live-root'); if(!n)return;
+      if(dirty||typing())return;
+      var keep=[].slice.call(root.querySelectorAll('.flash')); n.querySelectorAll('.flash').forEach(function(x){x.remove();});
+      var fresh=n.innerHTML, cur=root.cloneNode(true); cur.querySelectorAll('.flash').forEach(function(x){x.remove();});
+      if(fresh===cur.innerHTML)return;
+      var y=window.scrollY; root.innerHTML=fresh; var m=root.querySelector('main'); keep.reverse().forEach(function(k){ if(m) m.insertBefore(k,m.firstChild); });
+      if(window.htmx) htmx.process(root); window.scrollTo(0,y);
+    }).catch(function(){}).then(function(){ busy=false; tag.className=''; });
+  }
+  setInterval(tick,5000);
+})();
+</script>
+</body></html>

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Search - Cheape Deal{% endblock %}
+{% block content %}
+<h1 class="display text-3xl font-extrabold mb-4">Search</h1>
+<form method="get" action="/search" class="flex gap-2 mb-6 max-w-xl"><label class="sr-only" for="sq">Search</label><input class="in" id="sq" name="q" value="{{ q }}" placeholder="Product, SKU, order number, customer, seller..." autofocus><button class="btn btn-accent">Search</button></form>
+{% if q %}
+<section class="panel mb-4"><div class="panel-h"><h2 class="display text-lg font-bold">Products ({{ prods|length }})</h2></div>{% if prods %}<ul class="panel-b space-y-1.5 text-sm">{% for p in prods %}<li><a href="/products?q={{ p.sku or p.title }}">{{ p.title }}</a> <span class="muted">{{ p.sku }} &middot; {{ p.selling_price|money }}</span> &middot; <a href="/strategy/product/{{ p.id }}">strategy</a></li>{% endfor %}</ul>{% else %}<p class="panel-b muted">None.</p>{% endif %}</section>
+<section class="panel mb-4"><div class="panel-h"><h2 class="display text-lg font-bold">Orders ({{ orders|length }})</h2></div>{% if orders %}<ul class="panel-b space-y-1.5 text-sm">{% for o in orders %}<li><a href="/orders/{{ o.id }}">#{{ o.store_order_number or o.id }}</a> {{ o.customer_name }} <span class="muted">{{ o.status|label }} &middot; {{ o.total }} {{ o.currency }}</span></li>{% endfor %}</ul>{% else %}<p class="panel-b muted">None.</p>{% endif %}</section>
+
+{% endif %}{% endblock %}

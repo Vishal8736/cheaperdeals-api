@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Diagnostics (logs){% endblock %}
+{% macro chip(l) %}<span class="chip {{ 'chip-warn' if l in ('WARNING',) else ('chip-off' if l in ('INFO','DEBUG') else 'chip-dry') }}" {% if l in ('ERROR','CRITICAL') %}style="background:#FDE8E8;color:#9B1C1C"{% endif %}>{{ l }}</span>{% endmacro %}
+{% block content %}
+<h1 class="display text-2xl font-extrabold mb-1">Diagnostics (logs)</h1>
+<p class="help mb-4 max-w-[860px]">Har error/warning yahan save hota hai (key, password, token hata kar). Ek jaisi problem ek hi line mein gini jati hai, aur jaani-pehchani problem ke saath seedha "kya karo" likha aata hai. Koi dikkat ho to <b>Report download</b> karke bhej do: usme sab kuch ek file mein hai.</p>
+
+<section class="panel mb-4 max-w-[980px]"><div class="panel-h"><h2 class="display text-lg font-bold">Abhi ka haal (pichhle {{ hours }} ghante)</h2>
+  <div class="flex gap-2 flex-wrap">
+    <a class="btn btn-accent btn-sm" href="/diagnostics/download?h={{ hours }}">Report download (.txt)</a>
+    <form method="post" action="/diagnostics/test">{{ csrf() }}<button class="btn btn-ghost btn-sm">Test line likho</button></form>
+  </div></div>
+  <div class="panel-b grid gap-3 text-sm">
+    <div class="flex flex-wrap gap-3">
+      <div class="border border-dashed border-[#D8DCD5] rounded-lg px-4 py-2"><div class="help">Errors</div><b class="display text-2xl" style="{% if summary.errors %}color:#B42318{% endif %}">{{ summary.errors }}</b></div>
+      <div class="border border-dashed border-[#D8DCD5] rounded-lg px-4 py-2"><div class="help">Warnings</div><b class="display text-2xl">{{ summary.warnings }}</b></div>
+      <div class="border border-dashed border-[#D8DCD5] rounded-lg px-4 py-2"><div class="help">Total lines</div><b class="display text-2xl">{{ summary.total }}</b></div>
+      {% for c, n in summary.by_category.items() %}<a class="border border-dashed border-[#D8DCD5] rounded-lg px-4 py-2" href="/diagnostics?cat={{ c }}&h={{ hours }}"><div class="help">{{ c }}</div><b class="display text-2xl">{{ n }}</b></a>{% endfor %}
+    </div>
+    {% if summary.top %}<div><b>Sabse badi problem:</b> {{ summary.top.message[:160] }} <span class="help">(x{{ summary.top.n }})</span>{% if summary.top.hint %}<br><span class="chip chip-ok">{{ summary.top.hint.title }}</span> {{ summary.top.hint.fix }}{% endif %}</div>{% else %}<div class="chip chip-ok">Koi error nahi</div>{% endif %}
+    <details><summary class="cursor-pointer"><b>Health check</b> ({{ health|selectattr('ok','equalto',false)|list|length }} problem)</summary>
+      <div class="grid gap-1 mt-2">{% for h in health %}<div><span class="chip {{ 'chip-ok' if h.ok else ('chip-off' if h.ok is none else 'chip-warn') }}">{{ 'OK' if h.ok else ('?' if h.ok is none else 'dikkat') }}</span> <b>{{ h.name }}</b> <span class="help">{{ h.detail }}</span></div>{% endfor %}</div>
+    </details>
+  </div>
+</section>
+
+<section class="panel mb-4 max-w-[980px]"><div class="panel-b">
+  <form method="get" class="flex flex-wrap gap-2 items-end text-sm">
+    <label>Dekho<select class="in" name="view"><option value="problems" {{ 'selected' if view=='problems' }}>Problems (grouped)</option><option value="stream" {{ 'selected' if view=='stream' }}>Sab lines</option></select></label>
+    <label>Level<select class="in" name="lvl"><option value="">default</option>{% for l in ('INFO','WARNING','ERROR') %}<option {{ 'selected' if level==l }}>{{ l }}</option>{% endfor %}</select></label>
+    <label>Kahan<select class="in" name="cat"><option value="">sab</option>{% for c in cats %}<option {{ 'selected' if cat==c }}>{{ c }}</option>{% endfor %}</select></label>
+    <label>Samay<select class="in" name="h">{% for h, t in ((1,'1 ghanta'),(6,'6 ghante'),(24,'24 ghante'),(72,'3 din'),(336,'14 din')) %}<option value="{{ h }}" {{ 'selected' if hours==h }}>{{ t }}</option>{% endfor %}</select></label>
+    <label>Khojo<input class="in" name="q" value="{{ q }}" placeholder="text ya path"></label>
+    <label>Error ID<input class="in" name="ref" value="{{ ref }}" placeholder="A1B2C3" style="width:7rem"></label>
+    <button class="btn btn-sm">Dikhao</button><a class="btn btn-ghost btn-sm" href="/diagnostics">Reset</a>
+    <label class="flex items-center gap-1"><input type="checkbox" id="auto" {{ 'checked' if auto }}> auto-refresh 5s</label>
+  </form></div></section>
+
+{% if view == 'problems' %}
+<section class="grid gap-3 max-w-[980px]">
+  {% for g in problems %}
+  <div class="panel"><div class="panel-b grid gap-2 text-sm">
+    <div class="flex flex-wrap gap-2 items-center">{{ chip(g.level) }} <span class="chip chip-off">{{ g.category }}</span> <b>x{{ g.n }}</b>
+      <span class="help">aakhri baar {{ g.last | dt('%d %b %H:%M:%S') }}{% if g.n > 1 %} · pehli {{ g.first | dt('%d %b %H:%M') }}{% endif %}</span>
+      {% if g.ref %}<a class="underline help" href="/diagnostics?ref={{ g.ref }}">ID {{ g.ref }}</a>{% endif %}</div>
+    <div style="word-break:break-word">{{ g.message }}</div>
+    {% if g.hint %}<div class="rounded-lg p-2" style="background:#EAF6EC"><b>{{ g.hint.title }}</b><br>{{ g.hint.fix }}</div>{% endif %}
+    {% if g.trace %}<details><summary class="cursor-pointer help">Traceback dikhao</summary><pre class="text-xs overflow-auto" style="max-height:18rem;white-space:pre-wrap">{{ g.trace }}</pre></details>{% endif %}
+  </div></div>
+  {% else %}<div class="panel"><div class="panel-b chip chip-ok" style="display:inline-block">Is samay mein koi warning/error nahi. 'Sab lines' se poori kahani dekh sakte ho.</div></div>{% endfor %}
+</section>
+{% else %}
+<section class="panel max-w-[980px]"><div class="panel-b" style="overflow:auto">
+  <table class="tbl text-xs w-full"><thead><tr><th>Samay</th><th>Level</th><th>Kahan</th><th>ID</th><th>Message</th></tr></thead><tbody>
+  {% for r in rows %}<tr style="vertical-align:top"><td class="nowrap">{{ r.created_at | dt('%d %b %H:%M:%S') }}</td><td>{{ chip(r.level) }}</td><td>{{ r.category }}</td><td>{{ r.ref }}</td>
+    <td style="word-break:break-word">{{ r.message }}{% set hh = hint_of(r.message, r.trace) %}{% if hh %}<br><span class="chip chip-ok">{{ hh.title }}</span> {{ hh.fix }}{% endif %}{% if r.trace %}<details><summary class="cursor-pointer help">traceback</summary><pre style="white-space:pre-wrap;max-height:16rem;overflow:auto">{{ r.trace }}</pre></details>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="5" class="help">Koi line nahi mili.</td></tr>{% endfor %}</tbody></table>
+</div></section>
+{% endif %}
+
+<section class="panel mt-4 max-w-[980px]"><div class="panel-b flex flex-wrap gap-2 items-center text-sm">
+  <form method="post" action="/diagnostics/clear" onsubmit="return confirm('2 din se purani lines hata dun?')">{{ csrf() }}<input type="hidden" name="mode" value="old"><button class="btn btn-ghost btn-sm">Purani lines hatao (2 din+)</button></form>
+  <form method="post" action="/diagnostics/clear" onsubmit="return confirm('Saari log lines hata dun?')">{{ csrf() }}<input type="hidden" name="mode" value="all"><button class="btn btn-ghost btn-sm">Sab hatao</button></form>
+  <span class="help">14 din ya 20,000 lines ke baad purani apne aap hat jati hain.{% if file_log %} File copy: <code>{{ file_log }}</code>{% endif %}</span>
+</div></section>
+<script>
+(function(){
+  var K="diag-scroll", a=document.getElementById("auto");
+  try{var y=sessionStorage.getItem(K);if(y!==null){sessionStorage.removeItem(K);window.scrollTo(0,parseInt(y,10)||0);}}catch(e){}
+  if(a&&a.checked){setTimeout(function(){try{sessionStorage.setItem(K,String(window.scrollY));}catch(e){}
+    var u=new URL(location.href);u.searchParams.set("auto","1");location.href=u.toString();},5000);}
+  if(a){a.addEventListener("change",function(){var u=new URL(location.href);if(a.checked)u.searchParams.set("auto","1");else u.searchParams.delete("auto");location.href=u.toString();});}
+})();
+</script>
+{% endblock %}

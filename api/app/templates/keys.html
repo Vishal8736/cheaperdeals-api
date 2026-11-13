@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}API Keys - Cheape Deal{% endblock %}
+{% block content %}
+{% macro pw(id, name, label, ok, ph, help) %}<div><label class="f" for="{{ id }}">{{ label }}</label><input class="in" id="{{ id }}" name="{{ name }}" type="password" autocomplete="new-password" placeholder="{{ 'saved (badalna ho to naya daalo)' if ok else ph }}"><span class="help" style="display:block">{{ help }}</span></div>{% endmacro %}
+<div class="mb-5"><h1 class="display text-3xl font-extrabold">API Keys</h1>
+  <p class="muted mt-1 max-w-[72ch]">CJ key yahin; baaki sab (Vercel, Render, GitHub, Neon) browser login se. Sab encrypted save hoti hain, ek baar set karo to hamesha rehti hain (restart ke baad bhi) aur dobara screen par nahi dikhti.</p></div>
+
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">1. CJ Dropshipping (supplier)</h2>
+  <span class="chip {{ 'chip-ok' if cj_ok else ('chip-warn' if cj else 'chip-dry') }}">{{ 'jura hai, test pass' if cj_ok else ('jura hai, test fail' if cj else 'nahi juda') }}</span></div>
+  <form method="post" action="/keys/cj" class="panel-b grid gap-3">{{ csrf() }}
+    {{ pw('k-cj','api_key','CJ API key', cj, 'CJUserNum@api@...', 'CJ account > Authorization (API) > Generate API Key. Ek baar daalo: token apne aap leta aur renew karta hai. Ye key local.env ya server ki env file se upar rehti hai.') }}
+    {% if cj and not cj_ok and cj.last_error %}<div class="text-sm" style="color:var(--bad)">{{ cj.last_error }}</div>{% endif %}
+    <div><button class="btn btn-accent btn-sm">{{ 'Key badlo aur test karo' if cj else 'Key save karo aur test karo' }}</button></div></form>
+  {% if cj_ok %}<form method="post" action="/keys/cj-config" class="panel-b border-t border-dashed border-[#D8DCD5] grid sm:grid-cols-2 gap-3">{{ csrf() }}
+    <div class="sm:col-span-2"><b>CJ ke options</b> <span class="help">CJ jud gaya, ab bas ye ek baar set karo.</span></div>
+    <div><label class="f" for="o-s">Shipping method</label><input class="in" id="o-s" name="default_logistic_name" value="{{ v.default_logistic_name or 'AUTO' }}"><span class="help" style="display:block">AUTO = har order ke liye CJ ka sabse sasta method khud chuna jata hai.</span></div>
+    <div><label class="f" for="o-c">Ship-from country</label><input class="in" id="o-c" name="from_country_code" value="{{ v.from_country_code }}" maxlength="2"><span class="help" style="display:block">CN = China warehouse (aam).</span></div>
+    <div><label class="f" for="o-m">Markup % (CJ price par)</label><input class="in" id="o-m" name="markup_pct" value="{{ v.markup_pct }}" inputmode="decimal"><span class="help" style="display:block">Selling price = CJ price + itna %.</span></div>
+    <div><label class="f" for="o-g">Minimum margin %</label><input class="in" id="o-g" name="min_margin_pct" value="{{ v.min_margin_pct }}" inputmode="decimal"><span class="help" style="display:block">Isse kam profit wala order ruk jata hai.</span></div>
+    <div><label class="f" for="o-d">Roz ke max orders</label><input class="in" id="o-d" name="daily_order_cap" value="{{ v.daily_order_cap }}" inputmode="numeric"><span class="help" style="display:block">0 = koi limit nahi.</span></div>
+    <div class="sm:col-span-2 flex flex-wrap gap-2"><button class="btn btn-accent btn-sm">Options save karo</button> <a class="btn btn-ghost btn-sm" href="/catalog">Products import karo</a> <a class="btn btn-ghost btn-sm" href="/website/connect">Dukaan online karo</a></div></form>{% endif %}
+</section>
+
+<h2 class="display text-lg font-bold mb-2 max-w-[860px]">2. Vercel, Render, GitHub, Neon (CLI login)</h2>
+{% set cli_next = "/keys" %}{% include "partials/_cli.html" %}
+<section class="panel mb-6 max-w-[860px]"><div class="panel-h"><h2 class="display text-lg font-bold">3. Ping: backend ko sone se bachao</h2>
+  <span class="chip {{ 'chip-ok' if last.get('ok') else ('chip-warn' if last else 'chip-off') }}">{% if last %}aakhri ping {{ last.at }}: {{ 'ok ' ~ last.ms ~ ' ms' if last.ok else 'fail' }}{% else %}abhi koi ping nahi{% endif %}</span></div>
+  <div class="panel-b grid gap-2 text-sm">
+    <p>Render ka free server 15 minute kisi ne na khola to so jata hai. <b>Ping</b> = us par ek chhota request (<code>{{ backend }}/ping</code>, database nahi chhuta, bahut halka). Har 10 minute ping karne se wo jaga rehta hai.</p>
+    <ul class="list-disc pl-5 grid gap-1"><li>Server jaagte waqt <b>khud ko ping</b> karta hai: {{ 'ON' if self_ping else 'OFF (sirf https wale public server par chalta hai)' }}.</li>
+      <li>Soye hue server ko koi andar se nahi jaga sakta, isliye ek <b>bahar wala pinger</b> bhi lagao (free): GitHub Actions (repo mein <code>.github/workflows/keepalive.yml</code>, Variable <code>BACKEND_URL</code>) ya UptimeRobot (HTTP monitor, 5 min).</li></ul>
+    <form method="post" action="/keys/ping">{{ csrf() }}<button class="btn btn-accent btn-sm">Abhi ping karke test karo</button></form>
+    <details><summary class="cursor-pointer"><b>Chhota example (ye poora function hai)</b></summary>
+<pre class="text-xs p-3 mt-2 overflow-x-auto" style="background:#F3F4F0;border-radius:8px">import httpx, time
+def ping(url):                      # api/app/services/keepalive.py mein yahi hai
+    t = time.monotonic()
+    r = httpx.get(url.rstrip("/") + "/ping", timeout=15)
+    return r.status_code == 200, int((time.monotonic() - t) * 1000)
+
+# terminal se:  curl {{ backend }}/ping      ->  ok</pre></details>
+  </div>
+</section>
+{% endblock %}

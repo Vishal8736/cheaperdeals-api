@@ -1,0 +1,107 @@
+{% from "partials/_macros.html" import chip %}
+{% set need = d.counts.get('pending_approval',0) + d.counts.get('failed_manual',0) %}
+{% set todo = d.checklist|rejectattr("done")|list %}
+{% if todo %}<section class="panel mb-6" aria-labelledby="ck-h"><div class="panel-h"><h2 id="ck-h" class="display text-lg font-bold">Setup: {{ d.checklist|length - todo|length }} of {{ d.checklist|length }} done</h2></div>
+  <ul class="panel-b grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">{% for c in d.checklist %}<li class="flex items-center gap-2">{% if c.done %}<span class="chip chip-ok" aria-label="done">&#10003;</span><span class="muted">{{ c.label }}</span>{% else %}<span class="chip chip-warn" aria-label="to do">&#9675;</span><a href="{{ c.href }}">{{ c.label }}</a>{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+<header class="mb-6">
+  <h1 class="display text-3xl md:text-4xl font-extrabold">
+    {% if paused %}Automation is paused{% elif need %}{{ need }} order{{ 's' if need != 1 }} need{{ '' if need != 1 else 's' }} you{% else %}Everything is moving{% endif %}
+  </h1>
+  <p class="muted mt-1">
+    {% if paused %}Resume it from the bar above when you are ready.
+    {% elif need %}Open them below, fix the cause, then retry or approve.
+    {% elif dry_run %}Rehearsal mode is on, so nothing reaches the supplier yet.
+    {% else %}No order is stuck. Agents refresh every 3 seconds, the rest every 30.{% endif %}
+  </p>
+</header>
+
+{% set ps = d.pstats %}
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6" aria-label="Catalog at a glance">
+  <a class="tile" href="/products"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg></span><div><div class="v num">{{ ps.total }}</div><div class="k">Products in total</div></div></a>
+  <a class="tile ok" href="/products?view=listed"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><div><div class="v num">{{ ps.listed }}</div><div class="k">Listed for sale</div></div></a>
+  <a class="tile" href="/products?view=draft"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></svg></span><div><div class="v num">{{ ps.draft }}</div><div class="k">Imported, not listed yet</div></div></a>
+  <a class="tile {{ 'warn' if ps.hidden or ps.out_of_stock else '' }}" href="/products?view=hidden"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6zM4 4l16 16"/></svg></span><div><div class="v num">{{ ps.hidden }}</div><div class="k">Hidden or switched off</div></div></a>
+</section>
+
+<section class="panel mb-6" aria-labelledby="ag-h">
+  <div class="panel-h"><h2 id="ag-h" class="display text-lg font-bold">Agents, live</h2><a class="text-sm underline" href="/agents">Open full view</a></div>
+  <div class="panel-b" hx-get="/partials/agents-live" hx-trigger="every 3s" hx-swap="innerHTML">{% set snap = d.agents %}{% include "partials/_agents_live.html" %}</div>
+</section>
+
+<section class="grid lg:grid-cols-2 gap-6 mb-6" aria-label="Where products come from and go">
+  <div class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Products by supplier</h2><a class="text-sm underline" href="/connect">Connections ({{ d.conn_count }})</a></div>
+    {% if ps.by_supplier %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for name, n in ps.by_supplier %}<li class="px-4 py-2.5 flex justify-between"><span>{{ name }}</span><b class="num">{{ n }}</b></li>{% endfor %}</ul>
+    {% else %}<p class="panel-b muted">No products yet. <a class="underline" href="/catalog">Import from a supplier</a>.</p>{% endif %}</div>
+  <div class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Listed on</h2><a class="text-sm underline" href="/products?view=listed">See list</a></div>
+    {% if ps.by_store %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for name, n in ps.by_store %}<li class="px-4 py-2.5 flex justify-between"><span>{{ name }}</span><b class="num">{{ n }}</b></li>{% endfor %}</ul>
+    {% else %}<p class="panel-b muted">Nothing is listed on a store yet.</p>{% endif %}</div>
+</section>
+
+<section class="panel mb-6" aria-labelledby="belt-h">
+  <div class="panel-h"><h2 id="belt-h" class="display text-lg font-bold">Where orders are right now</h2><a class="text-sm underline" href="/orders">All orders</a></div>
+  <div class="panel-b">
+    <div class="belt">
+      {% for state, n in d.stages %}
+      <a class="stage {{ 'on' if n }}" href="/orders?status={{ state }}"><span class="node"></span><div class="n num">{{ n }}</div><div class="l">{{ state|label }}</div></a>
+      {% endfor %}
+    </div>
+    <hr class="tear my-4">
+    <div class="flex flex-wrap gap-x-8 gap-y-3 items-center">
+      <span class="font-semibold">Stuck on you</span>
+      {% for state, n in d.attention %}
+      <a href="/orders?status={{ state }}" class="no-underline flex items-center gap-2"><span class="chip chip-{{ state if n else 'received' }}">{{ state|label }}</span><span class="num font-bold text-lg">{{ n }}</span></a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="panel mb-6" aria-label="Today">
+  <div class="panel-b grid grid-cols-2 md:grid-cols-4 gap-y-5 gap-x-6">
+    <div class="fig"><span class="v num">{{ d.orders_today }}</span><span class="k">Orders today</span></div>
+    <div class="fig"><span class="v num">{{ d.revenue|money }}</span><span class="k">Revenue today</span></div>
+    <div class="fig"><span class="v num">{{ d.margin|money }}</span><span class="k">Estimated margin today</span></div>
+    <div class="fig"><span class="v num">{{ d.hidden_products }}<span class="muted text-base font-semibold"> of {{ d.products }}</span></span><span class="k">Products hidden automatically</span></div>
+  </div>
+</section>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="panel" aria-labelledby="al-h">
+    <div class="panel-h"><h2 id="al-h" class="display text-lg font-bold">Open alerts <span class="num muted font-semibold">({{ d.open_alerts }})</span></h2><a class="text-sm underline" href="/alerts">See all</a></div>
+    {% if d.alerts %}
+    <ul class="divide-y divide-dashed divide-[#D8DCD5]">
+      {% for a in d.alerts %}
+      <li class="px-4 py-3 flex gap-3"><span class="chip chip-{{ 'bad' if a.level=='error' else 'warn' }} self-start">{{ a.level }}</span>
+        <div class="min-w-0"><div class="break-words">{{ a.message }}</div><div class="text-xs muted mt-0.5">{{ a.source }} at {{ a.created_at|dt }}{% if a.order_id %}, <a class="underline" href="/orders/{{ a.order_id }}">open order</a>{% endif %}</div></div></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="panel-b muted">No open alerts. Problems show up here and on Telegram.</p>{% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="hb-h">
+    <div class="panel-h"><h2 id="hb-h" class="display text-lg font-bold">Automation heartbeat</h2><span class="text-sm muted">last run per job</span></div>
+    <ul class="divide-y divide-dashed divide-[#D8DCD5]">
+      {% for j in d.jobs %}
+      <li class="px-4 py-3 flex items-center justify-between gap-3">
+        <div><div class="font-semibold">{{ j.label }}</div><div class="text-xs muted">{{ j.ts|dt if j.ts else 'Never ran' }}</div></div>
+        {% if j.stale %}<span class="chip chip-warn" title="n8n has not called this job on time">Late</span>{% else %}<span class="chip chip-ok">On time</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if d.jobs|selectattr('stale')|list|length == d.jobs|length %}<p class="px-4 pb-4 text-sm muted">Nothing has run yet. Import the n8n workflows and activate them (see docs/SETUP_WINDOWS.md).</p>{% endif %}
+  </section>
+</div>
+
+<section class="panel" aria-labelledby="ro-h">
+  <div class="panel-h"><h2 id="ro-h" class="display text-lg font-bold">Latest orders</h2></div>
+  {% if d.recent %}
+  <div class="overflow-x-auto"><table class="t">
+    <thead><tr><th>Order</th><th>Customer</th><th>Status</th><th class="right">Total</th><th>Received</th></tr></thead>
+    <tbody>
+    {% for o in d.recent %}
+      <tr><td><a class="font-bold underline num" href="/orders/{{ o.id }}">#{{ o.store_order_number }}</a></td><td>{{ o.customer_name or '-' }}</td>
+      <td>{{ chip(o.status) }}{% if o.supplier_order and o.supplier_order.dry_run %} <span class="chip chip-dry">Rehearsal</span>{% endif %}</td>
+      <td class="right num">{{ o.total|money }}</td><td class="muted">{{ o.created_at|dt }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  {% else %}<p class="panel-b muted">No orders yet. When a customer pays in your store, it appears here within seconds.</p>{% endif %}
+</section>
