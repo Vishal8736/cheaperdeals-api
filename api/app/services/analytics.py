@@ -100,7 +100,7 @@ def dead_stock(db: Session, days: int = 60, limit: int = 15) -> list:
     cutoff = utcnow() - timedelta(days=days)
     sold = {pid for (pid,) in db.query(OrderItem.product_id).join(Order, Order.id == OrderItem.order_id).filter(Order.created_at >= cutoff, OrderItem.product_id.isnot(None)).distinct()}
     out = []
-    for p in db.query(Product).filter(Product.active.is_(True), Product.listing_status == "listed").order_by(Product.id):
+    for p in db.query(Product).filter(Product.active.is_(True), Product.listing_status == "listed", Product.kind != "affiliate").order_by(Product.id):
         started = p.listed_at or p.updated_at
         if p.id not in sold and started is not None and started <= cutoff:
             out.append(p)

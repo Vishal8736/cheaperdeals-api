@@ -38,7 +38,7 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"CJ\w*@api@\w+"), "***"),
     (re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|rnd_[A-Za-z0-9]{16,}|xox[bap]-[A-Za-z0-9-]{10,})\b"), "***"),
     (re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}"), "Bearer ***"),
-    (re.compile(r"(?i)((?:--env-var\s+)?[A-Z0-9_]*(?:KEY|SECRET|PASSWORD|PASSWD|TOKEN|DATABASE_URL|CREDENTIAL)[A-Z0-9_]*\s*=\s*)(?:\"[^\"]*\"|'[^']*'|[^\s&]+)"), r"\1***"),
+    (re.compile(r"(?i)((?:--env-var\s+)?[A-Z0-9_]*(?:KEY(?!WORD)|SECRET|PASSWORD|PASSWD|TOKEN|DATABASE_URL|CREDENTIAL)[A-Z0-9_]*\s*=\s*)(?:\"[^\"]*\"|'[^']*'|[^\s&]+)"), r"\1***"),
     (re.compile(r"(?i)(\"?(?:authorization|x-internal-key|x-api-key|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret)\"?\s*[:=]\s*\"?)[^\s\"',;&}]{4,}"), r"\1***"),
     (re.compile(r"(?i)([?&](?:key|token|api_key|apikey|password|secret|code)=)[^&\s]+"), r"\1***"),
     (re.compile(r"\b(?:user_code=)[A-Z0-9-]+"), "user_code=***"),

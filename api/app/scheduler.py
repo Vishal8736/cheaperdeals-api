@@ -12,6 +12,8 @@ log = logging.getLogger("cheapedeal.scheduler")
 
 # job -> (every N seconds, first run after N seconds)
 SCHEDULE = {
+    "catalog_run": (1800, 20),
+    "affiliate_run": (3600, 50),
     "process_pending": (20, 3),
     "tracking_sync": (120, 25),
     "intake_sweep": (300, 15),
@@ -27,11 +29,15 @@ SCHEDULE = {
 }
 
 
+BACKGROUND = {"catalog_run", "affiliate_run"}
+
+
 class Scheduler(threading.Thread):
     def __init__(self, database, rt):
         super().__init__(name="cheapedeal-scheduler", daemon=True)
         self.database, self.rt = database, rt
         self._stop = threading.Event()
+        self._busy: set[str] = set()
         t0 = time.monotonic()
         self._due = {job: t0 + first for job, (_, first) in SCHEDULE.items()}
 
@@ -53,6 +59,19 @@ class Scheduler(threading.Thread):
         finally:
             db.close()
 
+    def _in_background(self, job: str) -> None:
+        """Slow jobs (the catalog talks to the supplier for a minute or more) get their own thread so orders are never kept waiting."""
+        if job in self._busy:
+            return
+        self._busy.add(job)
+
+        def go():
+            try:
+                self.run_once(job)
+            finally:
+                self._busy.discard(job)
+        threading.Thread(target=go, name=f"job-{job}", daemon=True).start()
+
     def run(self) -> None:
         log.info("built-in scheduler started")
         while not self._stop.wait(2.0):
@@ -60,4 +79,4 @@ class Scheduler(threading.Thread):
             for job, (every, _) in SCHEDULE.items():
                 if now >= self._due[job]:
                     self._due[job] = now + every
-                    self.run_once(job)
+                    (self._in_background if job in BACKGROUND else self.run_once)(job)

@@ -121,3 +121,22 @@ def test_connector_edit_page_shows_the_saved_connection_not_an_empty_form(client
         cid = c.id
     html = client.get(f"/connect/{cid}/edit").text
     assert "My CJ edit" in html
+
+
+def test_connected_supplier_is_tested_in_the_background_and_becomes_ready(client):
+    """'CJ ko test se ready status par': no one should have to press Test after a restart."""
+    from app.models import Connection
+    from app.services import bootstrap
+    tok = login(client)
+    mgr = client.app.state.connectors
+    db_ = client.app.state.database
+    with db_.session() as s:
+        ok, _ = bootstrap.set_cj_key(s, mgr, "CJ-KEY-X")
+        c = s.query(Connection).filter(Connection.type == "cj_dropshipping").one()
+        c.last_status, c.last_tested_at = "untested", None
+        s.commit()
+    calls = []
+    mgr.test = lambda s, c: (calls.append(c.type), setattr(c, "last_status", "ok"), (True, "ok"))[2]
+    assert bootstrap.verify_suppliers(db_, mgr) == 1 and calls == ["cj_dropshipping"]
+    with db_.session() as s:
+        assert s.query(Connection).filter(Connection.type == "cj_dropshipping").one().last_status == "ok"

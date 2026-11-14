@@ -23,7 +23,7 @@
       <div class="flex flex-wrap items-center gap-3">
         <span class="kindtag w-16">{{ c.kind }}</span>
         <div class="flex-1 min-w-[10rem]"><b>{{ c.name }}</b> {% if c.is_default %}<span class="chip chip-info" style="background:var(--accent-soft);color:var(--accent-deep)">Default supplier</span>{% endif %}
-          <div class="text-xs muted">{{ (mgr.type(c.type).label if mgr.type(c.type) else c.type) }} &middot; {{ usage[c.id] }} {{ 'product(s)' if c.kind=='supplier' else 'listing(s)' }}{% if c.last_tested_at %} &middot; tested {{ c.last_tested_at|dt }}{% endif %}</div></div>
+          <div class="text-xs muted">{{ (mgr.type(c.type).label if mgr.type(c.type) else c.type) }} &middot; {{ usage[c.id] }} {{ 'product(s)' if c.kind in ('supplier','affiliate') else 'listing(s)' }}{% if c.last_tested_at %} &middot; tested {{ c.last_tested_at|dt }}{% endif %}</div></div>
         {% if not c.enabled %}<span class="chip chip-off">Off</span>{% elif c.last_status == 'ok' %}<span class="chip chip-connected">Connected</span>{% elif c.last_status == 'error' %}<span class="chip chip-error">Failed</span>{% else %}<span class="chip chip-untested">Not tested</span>{% endif %}
       </div>
       {% if c.last_error %}<div class="text-sm mt-2" style="color:var(--bad)">{{ c.last_error }}</div>{% endif %}
@@ -41,6 +41,7 @@
   </ul>
 </section>
 
+<div class="panel panel-b mb-6 text-sm">Affiliate (Amazon, eBay, networks ke product feeds) aur Print-on-Demand (Printful, Printify) ke 30 connectors alag page par hain: <a class="underline font-semibold" href="/programs">Affiliate + POD</a>.</div>
 <div class="grid lg:grid-cols-2 gap-6 mb-6">
   <section class="panel" aria-labelledby="as-h"><div class="panel-h"><h2 id="as-h" class="display text-lg font-bold">Add a supplier</h2><span class="text-xs muted">a company you buy from</span></div>
     <div class="panel-b grid gap-2.5">

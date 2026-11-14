@@ -56,6 +56,19 @@ def products(request: Request, db: Session = Depends(get_db)):
     return _json({"products": shop.products(db)}, request, cache=EDGE)
 
 
+@router.get("/go/{pid:int}")
+def go(pid: int, request: Request, db: Session = Depends(get_db)):
+    """Send the visitor to the merchant (our affiliate link) and count the click. Only a stored link of a live affiliate product is ever used."""
+    from fastapi.responses import RedirectResponse
+    from ..services import affiliate
+    if shop.rate_limited(_who(request) + ":go", 60):
+        raise HTTPException(429, "Thoda ruko")
+    url = affiliate.go_url(db, pid)
+    if not url:
+        raise HTTPException(404, "Ye product ab available nahi hai")
+    return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer-when-downgrade"})
+
+
 async def _body(request: Request) -> dict:
     try:
         data = await request.json()

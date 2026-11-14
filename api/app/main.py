@@ -15,6 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .adapters.mock_store import MockStore
 from .adapters.mock_supplier import MockSupplier
+from .adapters.no_supplier import NoSupplier
 from .adapters.telegram import NullNotifier, TelegramNotifier
 from .adapters.woocommerce import WooCommerceStore
 from .version import VERSION
@@ -30,7 +31,9 @@ log = logging.getLogger("cheapedeal")
 
 
 def build_runtime(cfg: Config, database: Database) -> Runtime:
-    supplier = MockSupplier()  # the built-in fallback is the demo supplier; real products use a CJ Dropshipping connection
+    # Only tests (and an explicit ENABLE_DEV_TOOLS=true practice run) get the simulated supplier. A real run without a connected supplier gets NoSupplier,
+    # which refuses honestly instead of inventing 'supplier orders'.
+    supplier = MockSupplier() if (cfg.app_env == "test" or cfg.enable_dev_tools) else NoSupplier()
     store = (WooCommerceStore(cfg.woo_base_url, cfg.woo_consumer_key, cfg.woo_consumer_secret, cfg.woo_webhook_secret)
              if cfg.store_backend == "woocommerce" else MockStore())
     notifier = TelegramNotifier(cfg.telegram_bot_token, cfg.telegram_chat_id) if cfg.telegram_bot_token else NullNotifier()
@@ -56,6 +59,9 @@ def create_app(cfg: Config | None = None, runtime: Runtime | None = None) -> Fas
             from .services import bootstrap as _bs
             _bs.disable_removed_connections(s, app.state.connectors)
             log.info("CJ: %s", _bs.ensure_cj(s, app.state.connectors, cfg.cj_api_key))
+        if cfg.app_env != "test":  # test the connected supplier in the background so it shows 'Connected' (ready) by itself
+            import threading
+            threading.Thread(target=_bs.verify_suppliers, args=(database, app.state.connectors), name="supplier-selftest", daemon=True).start()
         sched = None
         if cfg.internal_scheduler:
             from .scheduler import Scheduler
@@ -83,6 +89,7 @@ def create_app(cfg: Config | None = None, runtime: Runtime | None = None) -> Fas
     from .services import assistant as _ai
     _ai.SECRET_KEY = cfg.secret_key
     app.state.connectors = ConnectorManager(database, cfg.secret_key, cfg.connectors_path)
+    app.state.connectors.allow_demo = cfg.app_env == "test" or cfg.enable_dev_tools
     if app.state.rt.connectors is None:
         app.state.rt.connectors = app.state.connectors
     app.state.limiter = LoginLimiter()
@@ -165,8 +172,8 @@ def create_app(cfg: Config | None = None, runtime: Runtime | None = None) -> Fas
                 lg.error("%s %s -> %s (%.1fs)", request.method, path, resp.status_code, secs, extra=extra)
             elif resp.status_code in (401, 403) and request.method != "GET":
                 lg.warning("%s %s -> %s (blocked: login/CSRF/permission)", request.method, path, resp.status_code, extra={**extra, "cat": "security"})
-            elif secs > 3:
-                lg.warning("slow request %s %s took %.1fs", request.method, path, secs, extra=extra)
+            elif secs > (12 if request.method == "POST" and path.startswith(("/keys/", "/website/", "/engine/", "/agents/", "/catalog/auto", "/ai/")) else 3):
+                lg.warning("slow request %s %s took %.1fs", request.method, path, secs, extra=extra)  # (key tests, hosting and agent runs are slow on purpose)
         return resp
 
     @app.exception_handler(NotAuthenticated)
@@ -197,7 +204,7 @@ def create_app(cfg: Config | None = None, runtime: Runtime | None = None) -> Fas
             return JSONResponse({"ok": False, "db": str(e)[:100]}, status_code=503)
         return {"ok": True, "version": VERSION}
 
-    from .routers import diagnostics as diag_ui, host, keys as keys_ui, platforms as platforms_ui, shop_api, support as support_ui, website, agents_ui, analytics, assistant, auth, email as email_ui, catalog, connect, feed, internal, ops, playbook, strategy, ui, users, webhooks
+    from .routers import diagnostics as diag_ui, host, keys as keys_ui, platforms as platforms_ui, shop_api, support as support_ui, website, agents_ui, analytics, assistant, auth, email as email_ui, catalog, connect, feed, internal, ops, playbook, programs, strategy, ui, users, webhooks
     app.include_router(auth.router)
     app.include_router(webhooks.router)
     app.include_router(internal.router)
@@ -205,6 +212,7 @@ def create_app(cfg: Config | None = None, runtime: Runtime | None = None) -> Fas
     app.include_router(ops.router)
     app.include_router(ops.auth)
     app.include_router(ops.api)
+    app.include_router(programs.router)
     app.include_router(catalog.router)  # before ui: /products/list-on-store must win over /products/{pid}
     app.include_router(users.router)
     app.include_router(ui.router)

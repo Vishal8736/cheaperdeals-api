@@ -16,6 +16,11 @@
   const money = (n, c = cur) => sym(c) + Number(n).toFixed(2);
   const price = (p) => conv(p.price_usd);
   const byId = (id) => products.find((p) => p.id === id);
+  // Partner products (affiliate): no cart, a link to the merchant through our tracked /shop/go address. The link is marked sponsored for search engines.
+  const buy = (p, cls) => `<a href="${esc(API + p.go)}" target="_blank" rel="sponsored nofollow noopener" class="${cls}">Buy at ${esc(p.merchant)} <span class="material-symbols-outlined text-base align-middle">open_in_new</span></a>`;
+  const addBtn = (p, aria) => p.affiliate
+    ? buy(p, "h-10 px-3 rounded-lg bg-secondary text-white font-label-md text-label-md inline-flex items-center")
+    : `<button data-add="${p.id}" class="w-10 h-10 rounded-lg bg-surface-container-low hover:bg-secondary hover:text-white flex items-center justify-center transition-colors" aria-label="${aria}"><span class="material-symbols-outlined text-lg">add_shopping_cart</span></button>`;
   const stars = (n) => "★★★★★☆☆☆☆☆".slice(5 - Math.round(n), 10 - Math.round(n));
   function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600); }
 
@@ -65,7 +70,7 @@
       <div class="p-space-md flex flex-col gap-1 flex-1"><span class="font-badge-micro text-badge-micro text-secondary uppercase tracking-wider truncate">${esc(p.category || "Deal")}</span>
         <h3 class="font-label-md text-label-md font-semibold line-clamp-2 min-h-[36px]">${esc(p.title)}</h3>${p.reviews ? `<div class="font-body-sm text-body-sm text-on-surface-variant"><span class="text-amber-500">${stars(p.rating)}</span> ${p.rating} (${p.reviews})</div>` : ""}
         <div class="mt-auto flex items-center justify-between pt-1"><span class="font-price-md text-price-md">${money(price(p))}</span>
-        <button data-add="${p.id}" class="w-10 h-10 rounded-lg bg-surface-container-low hover:bg-secondary hover:text-white flex items-center justify-center transition-colors" aria-label="Add ${esc(p.title)} to cart"><span class="material-symbols-outlined text-lg">add_shopping_cart</span></button></div></div></article>`;
+        ${addBtn(p, "Add " + esc(p.title) + " to cart")}</div></div></article>`;
   }
   function renderShop() {
     const cats = ["All", ...new Set(products.map((p) => p.category).filter(Boolean))];
@@ -76,7 +81,7 @@
     $("#spot").innerHTML = products.slice(0, 3).map((p) => `<div class="bg-white rounded-xl p-space-md shadow-sm hover:shadow-md flex items-center gap-space-md">
       <button data-open="${p.id}" class="shrink-0">${img(p, "w-24 h-24 rounded-lg object-cover")}</button>
       <div class="flex-1 min-w-0"><span class="font-badge-micro text-badge-micro text-secondary uppercase">${esc(p.category || "New")}</span><h3 class="font-headline-sm text-headline-sm truncate">${esc(p.title)}</h3><span class="font-price-lg text-price-lg">${money(price(p))}</span></div>
-      <button data-add="${p.id}" class="w-10 h-10 rounded-lg bg-surface-container-low hover:bg-secondary hover:text-white flex items-center justify-center" aria-label="Add to cart"><span class="material-symbols-outlined text-lg">add_shopping_cart</span></button></div>`).join("");
+      ${addBtn(p, "Add to cart")}</div>`).join("");
   }
   function renderCart() {
     cart = cart.filter((l) => byId(l.id)); save();
@@ -90,7 +95,7 @@
       : `<p class="text-on-surface-variant text-center py-10">Your cart is empty.</p>`;
   }
   function add(id, d = 1) {
-    const p = byId(id); if (!p) return; warm();
+    const p = byId(id); if (!p || p.affiliate) return; warm();
     const l = cart.find((x) => x.id === id); const q = (l ? l.qty : 0) + d;
     if (q > p.stock) return toast(`Only ${p.stock} in stock`);
     if (q <= 0) cart = cart.filter((x) => x.id !== id); else if (l) l.qty = q; else cart.push({ id, qty: q });
@@ -108,8 +113,11 @@
     const p = byId(id); if (!p) return;
     openModal(`${closeBtn}<div class="grid gap-space-md">${img(p, "w-full max-h-80 object-contain rounded-lg")}<span class="font-badge-micro text-badge-micro text-secondary uppercase">${esc(p.category)}</span>
       <h3 class="font-headline-md text-headline-md">${esc(p.title)}</h3><p class="text-on-surface-variant whitespace-pre-line">${esc(p.description)}</p>
-      <div class="flex items-center justify-between"><span class="font-price-xl text-price-xl">${money(price(p))}</span><span class="font-body-sm text-body-sm text-on-surface-variant">${p.stock} in stock</span></div>
-      <button data-add="${p.id}" data-then="cart" class="h-12 bg-secondary hover:bg-on-secondary-container text-white rounded-lg font-label-md text-label-md">Add to cart</button>
+      ${p.affiliate ? `<div class="flex items-center justify-between"><span class="font-price-xl text-price-xl">${money(price(p))}</span><span class="font-body-sm text-body-sm text-on-surface-variant">sold by ${esc(p.merchant)}</span></div>
+      ${buy(p, "h-12 bg-secondary hover:bg-on-secondary-container text-white rounded-lg font-label-md text-label-md inline-flex items-center justify-center")}
+      <p class="font-body-sm text-body-sm text-on-surface-variant">Partner link: we may earn a commission if you buy, at no extra cost to you. Price and availability are set by ${esc(p.merchant)} and can change.</p>`
+      : `<div class="flex items-center justify-between"><span class="font-price-xl text-price-xl">${money(price(p))}</span><span class="font-body-sm text-body-sm text-on-surface-variant">${p.stock} in stock</span></div>
+      <button data-add="${p.id}" data-then="cart" class="h-12 bg-secondary hover:bg-on-secondary-container text-white rounded-lg font-label-md text-label-md">Add to cart</button>`}
       <div id="revs" class="border-t border-outline-variant pt-space-md"><div class="skeleton h-10 rounded-lg"></div></div></div>`);
     api(`/shop/reviews/${p.id}`, {}, 20000).then((r) => {
       const el = $("#revs"); if (!el) return;

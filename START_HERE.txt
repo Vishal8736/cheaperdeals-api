@@ -1,4 +1,4 @@
-CHEAPERDEALS v16.4 - kaise chalao (Windows)
+CHEAPERDEALS v18.0 - kaise chalao (Windows)
 1. Zip extract karo. run_local.bat double-click.
 2. http://localhost:8000 kholo, admin login.
 3. Menu > "API Keys + Ping":
@@ -15,7 +15,31 @@ LOGS / ERROR PAKADNA (naya):
 - Koi bhi dikkat: "Report download (.txt)" dabao aur wo file bhej do. Usme health check, Start ka log, problems aur aakhri 300 lines hain.
 - Page crash ho to screen par "Error ID" aata hai: Diagnostics > Error ID mein daalo.
 - File copy: logs/cheaperdeals.log (project folder mein).
-NAYA v16.4:
+NAYA v18.0:
+- Menu "Affiliate + POD (30)": 30 connectors (affiliate networks, Amazon/eBay, Printful/Printify...), commission ke hisaab se rank. Affiliate products website par "Buy at ..." ke saath aate hain; hum clicks ginte hain, kamai network dashboard mein dikhti hai.
+- Start dabane par Render ka code aur Vercel ki website khud update hoti hai (purana ho to). GitHub login na ho to warning, Start phir bhi chalta hai.
+- Chhoti ki awaaz zyada insaani aur surili; panel mein awaaz chunne ka dropdown hai.
+- Sach: commission % programs ke bataye hue numbers hain (source link ke saath); asli accounts par live test nahi hua.
+
+v17.0:
+- AI saathi "Chhoti": har page ke neeche-right avatar. Click karo: chat + voice + mic. Project ka code SIRF padh sakti hai (edit/delete/run nahi). Naya alert/error aaye to khud bolti hai, aur chup rehne par shop ki sachchi baat bolti hai. Awaaz browser ki hai (Chrome/Edge best); pehle page par ek click karna padta hai. Awaaz band: panel ke checkbox.
+- Kuch fake nahi: CJ key ke bina koi nakli product/order nahi banta. CJ connection start par khud test hoti hai (Connected/ready).
+- /agents/run-all crash (sim_tick) fix. Ctrl+C par faltu cache saaf karke Goodbye bolta hai.
+- Rehearsal mode ek simulation hai (label ke saath). Price Scout/Strategy ko eBay key chahiye.
+
+v16.7 (tumhare log + Alerts screenshot se):
+- FIX CJ 'HTTP 429': CJ 1 call/second deti hai. Ab saare agents ke CJ calls 1 second ke gap se chalte hain aur 429 par khud dobara try hota hai. 'Could not read supplier data' alerts band.
+- FIX galat 'Out of stock' hide: browse aur stock ab ek hi warehouse (Ship-from, default CN) se; sirf stock wale variants import hote hain.
+- Kam calls: product data cache, import dobara list nahi karta.
+- Purane alerts: Alerts page par 'Sab ho gaya mark karo'. Jo products US-warehouse stock ki wajah se hidden hue wo hidden rahenge; naye products CN stock wale aayenge.
+v16.6:
+- Website jodo page par 'GitHub repo private karo' button: repo sirf tumhare GitHub account ko dikhega. Uske baad Render ko GitHub access dena padega (Render dashboard > Account Settings > GitHub > Configure, is repo ko allow karo), warna naya code build nahi hoga. Ya seedha GitHub: repo > Settings > Danger Zone > Change visibility.
+v16.5:
+- FIX (tumhare log se): Start ke baad store live tha par products nahi aaye, kyunki koi agent khud CJ se product import nahi karta tha. Ab Catalog agent khud chalta hai: keywords se CJ mein dhundta hai, import karta hai, asli stock/price padhta hai, bikne layak products website par lagata hai (har 30 min, target tak). Catalog page par keywords/target set karo, 'Abhi chalao' se turant.
+- Start Render par products aaye ya nahi 3 minute tak dekhta hai aur log mein batata hai.
+- AI Advisor bina AI model ke bhi built-in jaanch karta hai.
+- Sach: Price Scout ko eBay key chahiye, Strategy usi ke prices par chalti hai. Key ke bina ye 2 agents kuch nahi karte. CJ par live test nahi hua.
+v16.4:
 - FIX: GitHub 'files upload ne mana kiya (404) Not Found'. Karan: keep-alive workflow file ke liye token ko 'workflow' permission chahiye. Ab login mein wo permission mangta hai; purane login par us ek file ke bina baaki code upload ho jata hai (log mein warning).
 - Code review: unused imports hataye, naya smoke test har page par server error pakadta hai.
 v16.3:

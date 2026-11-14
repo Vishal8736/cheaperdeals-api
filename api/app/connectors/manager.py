@@ -45,8 +45,10 @@ class ConnectorManager:
         self._types = types
         self._cache.clear()
 
+    allow_demo = False  # the simulated "mock_*" connectors are offered only for tests / an explicit practice run (ENABLE_DEV_TOOLS)
+
     def types(self, kind: str | None = None) -> list[ConnectorType]:
-        return [t for t in self._types.values() if kind in (None, t.kind)]
+        return [t for t in self._types.values() if kind in (None, t.kind) and (self.allow_demo or not t.key.startswith("mock_"))]
 
     def type(self, key: str) -> ConnectorType | None:
         return self._types.get(key)

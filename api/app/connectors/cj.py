@@ -8,6 +8,7 @@ Not run against a live CJ account yet: field names follow the public docs (see d
 """
 from __future__ import annotations
 
+import threading
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -22,6 +23,10 @@ from .rest_utils import dig
 BASE = "https://developers.cjdropshipping.com/api2.0/v1"
 STATUS = {"CREATED": "pending", "IN_CART": "pending", "UNPAID": "pending", "PENDING": "confirmed", "PROCESSING": "confirmed", "UNSHIPPED": "confirmed",
           "SHIPPED": "shipped", "DELIVERED": "delivered", "CANCELLED": "cancelled", "CANCELED": "cancelled"}
+MIN_GAP = 1.05  # CJ allows about ONE call per second per account; every call in this process (all agents, all threads) keeps this distance
+_GATE = threading.Lock()
+_LAST = [0.0]
+BACKOFF = (1.5, 3.0, 6.0)  # waits before the 2nd, 3rd, 4th try when CJ says "too many requests" / is briefly down
 _HINTS = (
     ("apikey", "API key galat ya expire hai: CJ account se nayi key banao aur Edit mein daalo."),
     ("balance", "CJ wallet mein paise kam hain: CJ account mein balance add karo (order balance se pay hota hai)."),
@@ -64,6 +69,7 @@ class CJSupplier:
         self._mem: dict = {}
         self._client = client or httpx.Client(timeout=httpx.Timeout(25.0, connect=10.0))
         self.sleep = time.sleep
+        self._cache: dict = {}
 
     # ---- tokens ------------------------------------------------------------------------------
     def tokens(self) -> dict:
@@ -77,6 +83,11 @@ class CJSupplier:
 
     def _raw(self, method: str, path: str, *, params=None, body=None, token: str = "") -> dict:
         headers = {"Accept": "application/json", **({"CJ-Access-Token": token} if token else {})}
+        with _GATE:  # one call at a time, one second apart: the Catalog agent and the Stock agent used to hit CJ together and got HTTP 429
+            wait = _LAST[0] + MIN_GAP - time.monotonic()
+            if wait > 0:
+                self.sleep(wait)
+            _LAST[0] = time.monotonic()
         try:
             r = self._client.request(method, BASE + path, params=params, json=body, headers=headers)
         except httpx.TimeoutException as e:
@@ -130,24 +141,30 @@ class CJSupplier:
     # ---- calls -------------------------------------------------------------------------------
     def _call(self, method: str, path: str, *, params=None, body=None, ambiguous_on_timeout: bool = False) -> dict:
         tok = self.ensure_token()["access_token"]
-        for attempt in (0, 1):
+        refreshed = False
+        for attempt in range(len(BACKOFF) + 1):
+            last = attempt == len(BACKOFF)
             try:
                 d = self._raw(method, path, params=params, body=body, token=tok)
             except SupplierError as e:
+                # HTTP 429 / 502 / 503 mean "slow down" or "a moment": safe to ask again for reads. A create-order call that timed out is never repeated.
+                if e.status_code in (429, 502, 503) and not ambiguous_on_timeout and not last:
+                    self.sleep(BACKOFF[attempt])
+                    continue
                 if e.retryable and ambiguous_on_timeout and "timed out" in str(e):
                     raise SupplierError(str(e), ambiguous=True, retryable=False)
                 raise
             code = int(d.get("code") or 0)
             msg = str(d.get("message") or d.get("msg") or "")
-            if code == 429 or "too many" in msg.lower() or "qps" in msg.lower():  # rate limit (1 call/second): wait and retry once
-                if attempt == 0 and not ambiguous_on_timeout:
-                    self.sleep(1.2)
+            if code == 429 or "too many" in msg.lower() or "qps" in msg.lower():  # rate limit in the JSON body
+                if not last and not ambiguous_on_timeout:
+                    self.sleep(BACKOFF[attempt])
                     continue
                 raise SupplierError(explain(f"CJ: {msg or code}"), retryable=True)
-            if "token" in msg.lower() and not self._ok(d):  # token no longer valid: get a new one once
-                if attempt == 0:
-                    tok = self._fresh_token()["access_token"]
-                    continue
+            if "token" in msg.lower() and not self._ok(d) and not refreshed:  # token no longer valid: get a new one once
+                refreshed = True
+                tok = self._fresh_token()["access_token"]
+                continue
             if not self._ok(d):
                 raise SupplierError(explain(f"CJ: {msg or d}"[:300]), retryable=False)
             return d
@@ -156,7 +173,7 @@ class CJSupplier:
     # ---- catalog -----------------------------------------------------------------------------
     def list_catalog(self, query: str = "", page: int = 1, page_size: int = 20) -> list[CatalogItem]:
         d = self._call("GET", "/product/listV2", params={"keyWord": query or "", "page": page, "size": max(1, min(100, page_size)),
-                                                          **({"countryCode": self.creds["ship_to_country"]} if self.creds.get("ship_to_country") else {})})
+                                                          **({"countryCode": self._src()} if self._src() else {})})
         out = []
         for block in (dig(d, "data.content", []) or []):
             for p in (block.get("productList") or []):
@@ -167,13 +184,37 @@ class CJSupplier:
                                        sku=str(p.get("sku") or ""), image_url=str(p.get("bigImage") or ""), category=str(p.get("threeCategoryName") or p.get("categoryName") or "")))
         return out
 
+    def _src(self) -> str:
+        """The warehouse country we ship from (CN = China). Browsing, stock and ordering must all use the SAME one: browsing used the destination before, so
+        products whose stock sat in another warehouse were imported and then hidden as 'out of stock'."""
+        return (self.creds.get("from_country") or "").strip().upper()
+
     def _product(self, pid: str) -> dict:
+        now = time.monotonic()
+        hit = self._cache.get(pid)
+        if hit and now - hit[0] < 90:  # the import and the stock check of the same product ask within seconds: one call is enough
+            return hit[1]
         d = self._call("GET", "/product/query", params={"pid": pid})
-        return d.get("data") or {}
+        data = d.get("data") or {}
+        if len(self._cache) > 200:
+            self._cache.clear()
+        self._cache[pid] = (now, data)
+        return data
+
+    def _stock_of(self, row: dict) -> int | None:
+        """Units in the warehouse we ship from. None = CJ gave no stock figures for this variant (do not mistake that for 'zero')."""
+        if "inventories" not in row:
+            return None
+        inv = row.get("inventories") or []
+        src = self._src()
+        return sum(int(i.get("totalInventory") or 0) for i in inv if not src or str(i.get("countryCode", "")).upper() == src)
 
     def variants_of(self, pid: str) -> list[dict]:
-        return [{"vid": f"{pid}|{v.get('vid')}", "variantSellPrice": v.get("variantSellPrice"), "name": v.get("variantNameEn", "")}
-                for v in (self._product(pid).get("variants") or []) if v.get("vid")]
+        rows = [v for v in (self._product(pid).get("variants") or []) if v.get("vid")]
+        stocked = [v for v in rows if (self._stock_of(v) or 0) > 0]
+        if any(self._stock_of(v) is not None for v in rows):  # CJ told us the stock: offer only variants that really have some
+            rows = stocked
+        return [{"vid": f"{pid}|{v.get('vid')}", "variantSellPrice": v.get("variantSellPrice"), "name": v.get("variantNameEn", ""), "stock": self._stock_of(v)} for v in rows]
 
     def get_product_info(self, vid: str) -> SupplierProductInfo:
         ids = split_vid(vid)
@@ -181,9 +222,9 @@ class CJSupplier:
         row = next((v for v in (p.get("variants") or []) if str(v.get("vid")) == ids["vid_b"]), None)
         if row is None:
             raise SupplierError(f"CJ has no variant {ids['vid_b']} for product {ids['vid_a']} (removed or wrong id).", retryable=False)
-        inv = row.get("inventories") or []
-        src = (self.creds.get("from_country") or "").upper()
-        stock = sum(int(i.get("totalInventory") or 0) for i in inv if not src or str(i.get("countryCode", "")).upper() == src) if inv else 0
+        stock = self._stock_of(row)
+        if stock is None:
+            raise SupplierError("CJ ne is variant ka stock nahi bataya: dobara try hoga.", retryable=True)
         return SupplierProductInfo(vid=vid, stock=stock, price=_dec(row.get("variantSellPrice") or p.get("sellPrice") or "0"))
 
     # ---- shipping ----------------------------------------------------------------------------

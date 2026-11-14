@@ -29,7 +29,7 @@ def connect_page(request: Request, db: Session = Depends(get_db)):
     rows = db.query(Connection).order_by(Connection.kind, Connection.id).all()
     usage = {}
     for c in rows:
-        usage[c.id] = (db.query(Product).filter(Product.supplier_connection_id == c.id).count() if c.kind == "supplier"
+        usage[c.id] = (db.query(Product).filter(Product.supplier_connection_id == c.id).count() if c.kind in ("supplier", "affiliate")
                        else db.query(ProductListing).filter(ProductListing.connection_id == c.id, ProductListing.status == "listed").count())
     cfg = request.app.state.cfg
     base = cfg.public_url.rstrip("/")

@@ -27,6 +27,16 @@ def site_files(backend_url: str) -> list[dict]:
     return out
 
 
+def site_fingerprint(backend_url: str) -> str:
+    """Hash of the exact shop files we would upload to Vercel (so Start knows when the live site is behind this computer's design)."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in site_files(backend_url):
+        h.update(f["file"].encode())
+        h.update(f["data"].encode())
+    return h.hexdigest()[:16]
+
+
 def valid_project_name(name: str) -> bool:
     return bool(re.fullmatch(r"[a-z0-9][a-z0-9-]{1,50}[a-z0-9]", name or ""))
 

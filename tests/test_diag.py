@@ -138,3 +138,10 @@ def test_nav_shows_error_badge(client):
     logging.getLogger("cheapedeal.x").error("something broke")
     diag.flush()
     assert 'title="Errors in last 24h"' in client.get("/").text
+
+
+def test_search_keyword_in_urls_is_not_mistaken_for_a_secret():
+    from app.services import diag
+    url = "GET https://developers.cjdropshipping.com/api2.0/v1/product/listV2?keyWord=phone case&page=1&size=50"
+    assert "keyWord=phone case" in diag.redact(url)
+    assert "SECRET" not in diag.redact("MY_API_KEY=SECRETVALUE") and diag.redact("apikey=abc12345").endswith("***")

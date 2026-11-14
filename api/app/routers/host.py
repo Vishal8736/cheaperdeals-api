@@ -125,6 +125,13 @@ def update_code(request: Request, db: Session = Depends(get_db)):
     return back("/website/connect")
 
 
+@router.post("/website/connect/private", dependencies=[Depends(verify_csrf)])
+def repo_private(request: Request, db: Session = Depends(get_db)):
+    ok, msg = launch.make_repo_private(db)
+    flash(request, "ok" if ok else "error", msg)
+    return back("/website/connect")
+
+
 @router.post("/website/connect/preflight", dependencies=[Depends(verify_csrf)])
 def run_preflight(request: Request, db: Session = Depends(get_db)):
     items = launch.preflight(db)

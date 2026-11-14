@@ -89,6 +89,14 @@ class Product(Base):
     playbook_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)  # the price the Playbook last set (to notice other changes)
     playbook_tag: Mapped[str] = mapped_column(String(120), default="")  # what the Playbook is doing to this product right now
     playbook_since: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # when the Playbook first saw the product (age for slow sellers)
+    # v18: what kind of product this is. dropship = we buy from a supplier after the sale; pod = print-on-demand supplier prints and ships (same flow);
+    # affiliate = we only show it and send the visitor to the merchant with our tracked link (no checkout, no stock, the merchant pays a commission)
+    kind: Mapped[str] = mapped_column(String(12), default="dropship", index=True)
+    affiliate_url: Mapped[str] = mapped_column(String(1500), default="")  # the merchant / network link (affiliate products only)
+    merchant: Mapped[str] = mapped_column(String(80), default="")  # who sells it, shown as "Buy at <merchant>"
+    commission_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(6, 2), nullable=True)  # the commission the program/feed states (may be None)
+    clicks: Mapped[int] = mapped_column(Integer, default=0)  # visitors sent to the merchant through /shop/go
+    last_click_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     listings: Mapped[list["ProductListing"]] = relationship(back_populates="product", cascade="all, delete-orphan")
 
     def margin_pct(self, selling: Decimal | None = None) -> Decimal:

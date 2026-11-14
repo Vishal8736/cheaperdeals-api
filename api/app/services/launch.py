@@ -106,6 +106,28 @@ def _need_login(db, which: str, sf=None) -> dict:
     raise Step(f"{hostcli.LABEL[which]} login poora nahi hua ({tail or 'browser mein allow nahi kiya'}). API Keys page se dobara try karo ya terminal mein khud login karo.")
 
 
+def make_repo_private(db) -> tuple[bool, str]:
+    """Make the project's GitHub repo private with the person's own `gh` login. Returns (ok, message). Also remembers the choice so a repo Start has to
+    create later is private too."""
+    name = (S.get(db, "host_repo", "") or "").rstrip("/").split("/")[-1] or (S.get(db, "host_render_name", "") or DEFAULT_RENDER)
+    try:
+        st = hostcli.status("github")
+        if not st["installed"]:
+            return False, "GitHub CLI (gh) computer par nahi hai. " + st["hint"]
+        if not st["logged_in"]:
+            return False, "GitHub mein login nahi hai. API Keys page par 'GitHub login (CLI)' dabao, phir dobara try karo."
+        r = gitpush.set_private(hostcli.github_token(), name, True)
+    except (hostcli.CliError, gitpush.GitError) as e:
+        return False, _scrub(db, str(e))[:300]
+    if not r["private"]:
+        return False, f"GitHub ne {r['url']} ko private nahi dikhaya. GitHub par repo Settings > Danger Zone > Change visibility se khud karo."
+    S.set_value(db, "host_repo_private", "true")
+    S.set_value(db, "host_repo", r["url"])
+    db.commit()
+    return True, (f"{r['url']} ab private hai: sirf tumhara GitHub account dekh sakta hai. "
+                  "Dhyan: Render ko is private repo ka access chahiye (Render dashboard > Account Settings > GitHub > Configure, aur is repo ko allow karo), warna naya code build nahi hoga.")
+
+
 def _warn_skipped(db) -> None:
     if gitpush.SKIPPED:
         _log(db, "GitHub token ko 'workflow' permission nahi, isliye keep-alive file (" + ", ".join(gitpush.SKIPPED) + ") upload nahi hui. Zaruri nahi: server khud ko ping karta hai. Chahiye to terminal mein `gh auth refresh -h github.com -s workflow` chalao aur Start dobara dabao.", "warn")
@@ -248,7 +270,7 @@ def _create_backend(db, name: str, sf=None) -> str:
         _need_login(db, "github", sf)
         _log(db, "Code GitHub par daal raha hun (local.env jaisi secret files nahi jaati)...")
         try:
-            repo = gitpush.publish(hostcli.github_token(), name)
+            repo = gitpush.publish(hostcli.github_token(), name, private=S.get_bool(db, "host_repo_private"))
             _warn_skipped(db)
         except gitpush.GitError as e:
             raise Step(str(e))
@@ -270,13 +292,17 @@ def _ensure_site(db, backend: str) -> str:
     proj = S.get(db, "host_vercel_project", "") or DEFAULT_VERCEL
     site = S.get(db, "host_vercel_url", "")
     _log(db, "Vercel check: tumhara project dekh raha hun...")
+    fp = hosting.site_fingerprint(backend)
     if site and S.get(db, "host_vercel_backend", "") == backend and hosting.alive(site, "/api/ping"):
         S.set_value(db, "shop_site_url", site)
         db.commit()
-        _log(db, f"Website pehle se maujood hai aur backend se jui hai: {site}. Wahi use kar raha hun.", "ok")
-        return site
+        if S.get(db, "auto_update", "true") != "true" or S.get(db, "host_site_hash", "") == fp:
+            _log(db, f"Website pehle se maujood hai, naya hai aur backend se jui hai: {site}. Wahi use kar raha hun.", "ok")
+            return site
+        _log(db, "Website ka design/code is computer par naya hai. Vercel par update kar raha hun (1-3 minute)...", "warn")
     _log(db, f"Vercel par '{proj}' deploy kar raha hun (1-3 minute)...", "warn")
     site = hostcli.vercel_deploy(db, proj, backend)["site"]  # returns only after the deployment finished
+    S.set_value(db, "host_site_hash", fp)
     db.commit()
     if not _wait(lambda: hosting.alive(site, "/api/ping"), 12, 5):
         raise Step(f"Dukaan {site} khuli par /api se backend tak nahi pahunch rahi. Vercel project mein 'Deployment Protection' band karo aur dobara Start dabao.")
@@ -295,6 +321,7 @@ def _wake_remote(db, backend: str, site: str) -> None:
             r = C.client().post(backend.rstrip("/") + "/internal/engine/start", headers={"X-Internal-Key": key}, json={"live": live, "site_url": site}, timeout=30)
             if r.status_code == 200:
                 _log(db, "Render wale server ka engine Start ho gaya" + (" (LIVE: asli orders CJ ko jayenge)." if live else " (Rehearsal mode: asli orders abhi CJ ko nahi jayenge)."), "ok")
+                _watch_products(db, backend, key)
                 return
             if r.status_code == 401:
                 _log(db, "Render server ki internal key alag hai (shayad kisi aur ne banaya). Uske admin login se Start dabao.", "warn")
@@ -305,8 +332,87 @@ def _wake_remote(db, backend: str, site: str) -> None:
     raise Step("Render server ko Start ka signal nahi pahunch paya. Thodi der baad Start dobara dabao.")
 
 
+def _watch_products(db, backend: str, key: str) -> None:
+    """Start made the Render agents run at once (the Catalog agent imports from CJ and lists on the website). Look, for a few minutes, whether products
+    really arrive and say so; never fails Start (the agent keeps trying every 30 minutes)."""
+    _log(db, "Catalog agent CJ se products la raha hai, dekh raha hun aaye ya nahi (3 minute tak)...")
+    last = None
+    for i in range(18):
+        try:
+            r = C.client().get(backend.rstrip("/") + "/internal/engine/status", headers={"X-Internal-Key": key}, timeout=20)
+        except httpx.HTTPError:
+            r = None
+        if r is not None and r.status_code == 200:
+            try:
+                last = r.json()
+            except ValueError:
+                last = None
+            if last and int(last.get("listed", 0)) > 0:
+                _log(db, f"Render par {last['listed']} products website par lag gaye ({last.get('products', 0)} import hue). Dukaan mein dikhne chahiye.", "ok")
+                return
+        elif r is not None and r.status_code in (401, 404):
+            _log(db, "Render server par products ki ginti nahi padh paya (purana version?). 'Render par naya code bhejo' dabao, phir Start.", "warn")
+            return
+        SLEEP(10)
+    why = ""
+    if last and last.get("catalog_error"):
+        why = f" Rukawat: {last['catalog_error']}"
+    _log(db, "Abhi tak koi product website par nahi laga." + why + " Agent har 30 minute mein khud try karta hai. Render admin > Agents/Diagnostics mein wajah dikhegi; CJ key aur CJ stock check karo.", "warn")
+
+
+def _push_code(db, sf, backend: str) -> None:
+    """Send this computer's code to GitHub and wait until Render runs it. Raises Step/CliError/GitError when it cannot."""
+    if not S.get(db, "host_repo", ""):
+        raise Step("GitHub repo abhi bana nahi hai (pehli baar Start mein banta hai).")
+    repo = S.get(db, "host_repo", "")
+    _need_login(db, "github", sf)
+    _log(db, f"Naya code (v{VERSION}) GitHub par bhej raha hun...")
+    gitpush.publish(hostcli.github_token(), repo.rstrip("/").split("/")[-1])
+    _warn_skipped(db)
+    _log(db, "Code GitHub par pahunch gaya.", "ok")
+    if remote_version(backend) == VERSION:  # same version number, code differs: Render rebuilds in the background, the old one serves until it is ready
+        S.set_value(db, "host_pushed_hash", gitpush.fingerprint())
+        db.commit()
+        _log(db, "Render naya build bana raha hai (2-4 minute). Tab tak purana server chalta rahega, phir apne aap badal jayega.", "ok")
+        return
+    _log(db, "Render ke auto-deploy ka intezaar (3 minute tak)...")
+    if not _wait(lambda: remote_version(backend) == VERSION, 18, 10):
+        _log(db, "Auto-deploy nahi dikha. Render ko seedha build karne bol raha hun...", "warn")
+        _need_login(db, "render", sf)
+        sid = S.get(db, "host_render_service", "")
+        if not sid:
+            raise Step("Render service ka ID save nahi hai. Render dashboard mein 'Manual Deploy > Deploy latest commit' dabao.")
+        hostcli.render_deploy(sid)
+        if not _wait(lambda: remote_version(backend) == VERSION, 60, 10):
+            raise Step("Render par naya code abhi tak nahi chala. Render dashboard > service > Logs mein build ki galti dekho.")
+    S.set_value(db, "host_remote_version", VERSION)
+    S.set_value(db, "host_pushed_hash", gitpush.fingerprint())
+    db.commit()
+    _log(db, f"Render par ab v{VERSION} chal raha hai.", "ok")
+
+
+def auto_update(db, sf, backend: str) -> None:
+    """Part of Start: if the Render server runs older code than this computer has, send the new code first. Never stops Start: when the update cannot be done
+    (no GitHub login, GitHub refusing) Start says so and carries on with the old server."""
+    if S.get(db, "auto_update", "true") != "true":
+        return
+    here, was = gitpush.fingerprint(), S.get(db, "host_pushed_hash", "")
+    rv = remote_version(backend)
+    S.set_value(db, "host_remote_version", rv)
+    if rv == VERSION and (not was or was == here):
+        S.set_value(db, "host_pushed_hash", here)
+        db.commit()
+        _log(db, f"Render par code already naya hai (v{VERSION}).", "ok")
+        return
+    _log(db, f"Render par code purana hai (server v{rv or '?'}, yahan v{VERSION}). Pehle update karta hun...", "warn")
+    try:
+        _push_code(db, sf, backend)
+    except (Step, hostcli.CliError, gitpush.GitError) as e:
+        _log(db, "Render ka code update nahi ho paya, purane code ke saath Start kar raha hun: " + _scrub(db, str(e))[:240], "warn")
+
+
 def update_remote(session_factory, actor: str = "admin") -> bool:
-    """Send this computer's code to GitHub; Render builds it (auto-deploy, or we ask Render to build); wait until Render reports this version."""
+    """The 'Render par naya code bhejo' button: send this computer's code to GitHub; Render builds it; wait until Render reports this version."""
     if not _LOCK.acquire(blocking=False):
         return False
     db = session_factory()
@@ -318,24 +424,9 @@ def update_remote(session_factory, actor: str = "admin") -> bool:
         repo, backend = S.get(db, "host_repo", ""), S.get(db, "host_render_url", "")
         if not repo or not backend:
             raise Step("Pehle Start dabao: Render server aur GitHub repo abhi bane hi nahi hain.")
-        _need_login(db, "github", session_factory)
-        _log(db, f"Naya code (v{VERSION}) GitHub par bhej raha hun...")
-        gitpush.publish(hostcli.github_token(), repo.rstrip("/").split("/")[-1])
-        _warn_skipped(db)
-        _log(db, "Code GitHub par pahunch gaya.", "ok")
-        _log(db, "Render ke auto-deploy ka intezaar (3 minute tak)...")
-        if not _wait(lambda: remote_version(backend) == VERSION, 18, 10):
-            _log(db, "Auto-deploy nahi dikha. Render ko seedha build karne bol raha hun...", "warn")
-            _need_login(db, "render", session_factory)
-            sid = S.get(db, "host_render_service", "")
-            if not sid:
-                raise Step("Render service ka ID save nahi hai. Render dashboard mein 'Manual Deploy > Deploy latest commit' dabao.")
-            hostcli.render_deploy(sid)
-            if not _wait(lambda: remote_version(backend) == VERSION, 60, 10):
-                raise Step("Render par naya code abhi tak nahi chala. Render dashboard > service > Logs mein build ki galti dekho.")
-        S.set_value(db, "host_remote_version", VERSION)
+        _push_code(db, session_factory, backend)
         S.set_value(db, "launch_state", "ok")
-        _log(db, f"Render par ab v{VERSION} chal raha hai.", "ok")
+        db.commit()
         return True
     except (Step, hostcli.CliError, gitpush.GitError) as e:
         db.rollback()
@@ -423,6 +514,7 @@ def run(session_factory, actor: str = "admin") -> bool:
         todo = [i["label"] for i in found if i["state"] == "missing"]
         _log(db, ("Jo nahi mila wo ab khud banaunga: " + ", ".join(todo) + ".") if todo else "Sab kuch pehle se hai, bas jod kar Start kar raha hun.", "ok" if not todo else "info")
         backend = _ensure_backend(db, session_factory, svcs)
+        auto_update(db, session_factory, backend)
         site = _ensure_site(db, backend)
         _wake_remote(db, backend, site)
         engine.start(db, actor)

@@ -42,9 +42,9 @@ def already_imported(db: Session, connection_id: int, items: list[CatalogItem]) 
     return {r[0] for r in q.all()}
 
 
-def import_items(db: Session, rt, connection_id: int, wanted: set[str], query: str, page: int, *, markup_pct: Decimal | None = None) -> dict:
+def import_items(db: Session, rt, connection_id: int, wanted: set[str], query: str, page: int, *, markup_pct: Decimal | None = None, items: list | None = None) -> dict:
     """Import the chosen products (matched by supplier product id) as drafts. Prices are re-read from the supplier, never from the browser."""
-    items = [i for i in search(db, rt, connection_id, query, page, 50) if i.supplier_product_id in wanted]
+    items = [i for i in (items if items is not None else search(db, rt, connection_id, query, page, 50)) if i.supplier_product_id in wanted]
     adapter = supplier_adapter(rt, connection_id)
     markup = markup_pct if markup_pct is not None else S.get_decimal(db, "markup_pct")
     cid = connection_id or None

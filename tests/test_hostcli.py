@@ -72,6 +72,11 @@ def handler(req: httpx.Request) -> httpx.Response:
         W["gh_auth"] = req.headers.get("authorization")
         if p == "/user":
             return httpx.Response(200, json={"login": "vishal"})
+        if p == "/repos/vishal/cheaperdeals-api":
+            if req.method == "PATCH":
+                W["visibility_patch"] = json.loads(req.content)
+                W["repo_private"] = bool(W["visibility_patch"].get("private")) and not W.get("gh_refuses_private")
+            return httpx.Response(200, json={"private": W.get("repo_private", False), "name": "cheaperdeals-api"})
         if p.endswith("/git/ref/heads/main"):
             return httpx.Response(200, json={"object": {"sha": "c0"}})
         if p.endswith("/git/trees"):
@@ -86,6 +91,10 @@ def handler(req: httpx.Request) -> httpx.Response:
         seq = W.get("rver_seq")  # versions the Render server reports on successive calls (simulates a build finishing)
         v = (seq.pop(0) if len(seq) > 1 else seq[0]) if seq else W.get("rver", VERSION)
         return httpx.Response(200, json={"ok": True, **({"version": v} if v else {})})
+    if p == "/internal/engine/status":
+        if W.get("status_404"):
+            return httpx.Response(404)
+        return httpx.Response(200, json=W.get("status", {"running": True, "products": 6, "listed": 4, "catalog_error": "", "version": VERSION}))
     if p == "/internal/engine/start":
         W["remote_start"] = {"key": req.headers.get("x-internal-key"), "body": json.loads(req.content)}
         return httpx.Response(200, json={"ok": True})
@@ -570,7 +579,7 @@ def test_update_code_pushes_to_github_and_waits_for_render_to_report_the_new_ver
 def test_update_code_asks_render_to_build_when_auto_deploy_does_not_happen(client):
     tok = login(client)
     _hosted(client, tok)
-    W["rver_seq"] = ["15.1"] * 18 + [VERSION]  # stays old for the whole auto-deploy wait, then the manual deploy works
+    W["rver_seq"] = ["15.1"] * 19 + [VERSION]  # stays old for the whole auto-deploy wait, then the manual deploy works
     post(client, "/website/connect/update", tok)
     st, lg, _ = state(client)
     assert st == "ok" and W["deploy_cmd"].startswith("render deploys create srv-1")
@@ -761,3 +770,152 @@ def test_github_other_failures_are_not_swallowed(client):
         finally:
             gitpush._tree = orig
     assert e.value.status == 401
+
+
+def test_start_watches_that_products_really_arrive_on_render(client):
+    tok = login(client)
+    prep(client, tok)
+    post(client, "/engine/start", tok, next="/")
+    st, lg, started = state(client)
+    assert st == "ok" and any("Render par 4 products website par lag gaye" in m for _, m in lg)
+    assert any("Catalog agent CJ se products la raha hai" in m for _, m in lg)
+
+
+def test_start_says_plainly_when_no_product_arrives_and_still_finishes(client):
+    tok = login(client)
+    prep(client, tok)
+    W["status"] = {"running": True, "products": 0, "listed": 0, "catalog_error": "Auto catalog ruk gaya: CJ API key galat", "version": VERSION}
+    post(client, "/engine/start", tok, next="/")
+    st, lg, started = state(client)
+    assert st == "ok" and started
+    assert any("Abhi tak koi product website par nahi laga" in m and "CJ API key galat" in m and lv == "warn" for lv, m in lg)
+
+
+def test_start_with_old_render_version_without_status_endpoint_only_warns(client):
+    tok = login(client)
+    prep(client, tok)
+    W["status_404"] = True
+    post(client, "/engine/start", tok, next="/")
+    st, lg, started = state(client)
+    assert st == "ok" and any("ginti nahi padh paya" in m for _, m in lg)
+
+
+def test_repo_private_button_makes_the_repo_private_and_verifies_it(client):
+    tok = login(client)
+    prep(client, tok)
+    with client.app.state.database.SessionLocal() as db:
+        S.set_value(db, "host_repo", "https://github.com/vishal/cheaperdeals-api")
+        db.commit()
+    assert "GitHub repo private karo" in client.get("/website/connect").text
+    r = post(client, "/website/connect/private", tok)
+    assert W["visibility_patch"] == {"private": True}
+    assert raw(client, "host_repo_private") == "true"
+    assert "ab private hai" in client.get("/website/connect").text  # flash, with the Render access warning
+    W["repo_private"] = True
+    W.pop("visibility_patch")
+    post(client, "/website/connect/private", tok)
+    assert "visibility_patch" not in W  # already private: nothing changed
+
+
+def test_repo_private_is_not_claimed_when_github_does_not_show_it(client):
+    tok = login(client)
+    prep(client, tok)
+    with client.app.state.database.SessionLocal() as db:
+        S.set_value(db, "host_repo", "https://github.com/vishal/cheaperdeals-api")
+        db.commit()
+    W["gh_refuses_private"] = True
+    client.get("/website/connect")  # shows (and so clears) the earlier flash from prep()
+    post(client, "/website/connect/private", tok)
+    assert raw(client, "host_repo_private") != "true"
+    assert "private nahi dikhaya" in client.get("/website/connect").text
+
+
+def test_new_repo_is_created_private_after_the_choice(client):
+    tok = login(client)
+    prep(client, tok)
+    with client.app.state.database.SessionLocal() as db:
+        S.set_value(db, "host_repo_private", "true")
+        db.commit()
+    seen = []
+    orig = gitpush._call
+    gitpush._call = lambda t, m, p, **kw: (seen.append((m, p, kw.get("json"))) or orig(t, m, p, **kw))
+    try:
+        post(client, "/engine/start", tok, next="/")
+    finally:
+        gitpush._call = orig
+    assert any(m == "POST" and p == "/user/repos" and j["private"] is True for m, p, j in seen)
+
+
+# ---- v18: Start brings Render and Vercel up to date by itself ---------------------------------------------------
+def _start_twice_setup(client, tok):
+    prep(client, tok)
+    W["services"] = [{"id": "srv-1", "name": "cheaperdeals-api", "type": "web_service", "url": "https://cheaperdeals-api.onrender.com"}]
+    post(client, "/engine/start", tok, next="/")  # first Start: reuses the backend, deploys the website, remembers what it sent
+    assert state(client)[0] == "ok"
+    with client.app.state.database.SessionLocal() as db:
+        S.set_value(db, "host_repo", "https://github.com/vishal/cheaperdeals-api")  # the repo Start created on the very first run
+        db.commit()
+    ran.clear()
+    W.pop("tree", None)
+
+
+def test_start_sends_new_code_to_render_when_the_server_is_behind(client):
+    tok = login(client)
+    _start_twice_setup(client, tok)
+    W["rver_seq"] = ["15.1"] * 3 + [VERSION]
+    post(client, "/engine/start", tok, next="/")
+    st, log, _ = state(client)
+    assert st == "ok", log
+    assert any(e["path"] == "render.yaml" for e in W["tree"]["tree"]) and any("Render par ab v" in m for _, m in log)
+    assert any("purana hai" in m for _, m in log)
+
+
+def test_start_pushes_when_code_changed_even_with_same_version(client):
+    tok = login(client)
+    _start_twice_setup(client, tok)
+    with client.app.state.database.SessionLocal() as db:
+        S.set_value(db, "host_pushed_hash", "an-older-fingerprint")
+        db.commit()
+    post(client, "/engine/start", tok, next="/")
+    st, log, _ = state(client)
+    assert st == "ok" and "tree" in W and any("naya build" in m for _, m in log)
+    post(client, "/engine/start", tok, next="/")  # nothing changed since: nothing is sent again
+    W.pop("tree", None)
+    post(client, "/engine/start", tok, next="/")
+    assert "tree" not in W and any("already naya" in m for _, m in state(client)[1])
+
+
+def test_start_carries_on_when_the_update_cannot_be_sent(client):
+    tok = login(client)
+    _start_twice_setup(client, tok)
+    W["rver_seq"] = ["15.1"]
+    W["github"] = False
+    post(client, "/engine/start", tok, next="/")
+    st, log, started = state(client)
+    assert st == "ok" and started and any(lv == "warn" and "update nahi ho paya" in m for lv, m in log)
+    assert "tree" not in W
+
+
+def test_start_updates_the_website_when_its_design_changed(client):
+    tok = login(client)
+    _start_twice_setup(client, tok)
+    with client.app.state.database.SessionLocal() as db:
+        S.set_value(db, "host_site_hash", "old-site")
+        db.commit()
+    post(client, "/engine/start", tok, next="/")
+    assert state(client)[0] == "ok" and any("deploy" in r["cmd"] for r in ran)
+    ran.clear()
+    post(client, "/engine/start", tok, next="/")  # same design now: no second deploy
+    assert not [r for r in ran if "deploy" in r["cmd"]]
+
+
+def test_auto_update_can_be_switched_off(client):
+    tok = login(client)
+    _start_twice_setup(client, tok)
+    with client.app.state.database.SessionLocal() as db:
+        S.set_value(db, "auto_update", "false")
+        S.set_value(db, "host_site_hash", "old-site")
+        db.commit()
+    W["rver_seq"] = ["15.1"]
+    post(client, "/engine/start", tok, next="/")
+    assert "tree" not in W and not [r for r in ran if "deploy" in r["cmd"]]

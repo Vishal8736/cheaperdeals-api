@@ -4,7 +4,8 @@ r"""One-command local setup + start for Windows (also works on Linux/macOS).
     py -3 scripts\local_run.py --setup-only
     py -3 scripts\local_run.py --reset-password
 
-Runs with SIMULATED store and supplier (no accounts needed), SQLite, DRY-RUN on, and the test-order simulator enabled.
+Runs on your own PC with SQLite and DRY-RUN (rehearsal) ON until you switch Live on. Nothing is simulated: without a CJ key the app says so and
+holds, it never invents supplier orders or demo products. On Ctrl+C it tidies its own leftovers and says goodbye.
 The virtual environment, database and secrets are kept in your home folder (C:\Users\<you>\CheapeDeal-data), NOT inside
 OneDrive, so OneDrive never syncs a live database or your passwords.
 """
@@ -130,16 +131,79 @@ def ensure_env(dd: Path, reset_password: bool) -> tuple[dict[str, str], bool]:
             "ADMIN_USERNAME=admin",
             "ADMIN_PASSWORD=" + pw,
             "DATABASE_URL=sqlite:///" + db,
-            "SUPPLIER_BACKEND=mock",
-            "STORE_BACKEND=mock",
-            "ENABLE_DEV_TOOLS=true",
+            "ENABLE_DEV_TOOLS=false",
             "DRY_RUN=true",
             "APP_TIMEZONE=Asia/Kolkata",
             "CURRENCY_SYMBOL=$",
         ]
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         created = True
+    elif _drop_fake_settings(path):
+        say("Purani settings file mein nakli (demo) options band kar diye.")
     return read_env(path), created
+
+
+def _drop_fake_settings(path: Path) -> bool:
+    """Older versions wrote SUPPLIER_BACKEND=mock / STORE_BACKEND=mock / ENABLE_DEV_TOOLS=true (simulated supplier + demo tools). Remove them from an existing file."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    out, changed = [], False
+    for ln in lines:
+        key, _, val = ln.partition("=")
+        if key.strip() in ("SUPPLIER_BACKEND", "STORE_BACKEND"):
+            changed = True
+            continue
+        if key.strip() == "ENABLE_DEV_TOOLS" and val.strip().lower() in ("1", "true", "yes", "on"):
+            out.append("ENABLE_DEV_TOOLS=false")
+            changed = True
+            continue
+        out.append(ln)
+    if changed:
+        path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    return changed
+
+
+JUNK_DIRS = {"__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache"}
+KEEP_DIRS = {"node_modules", ".git", "venv", ".venv"}
+
+
+def tidy(root: Path, dd: Path) -> int:
+    """Delete only what the app itself generated and can recreate: Python bytecode caches, test/lint caches, the temporary website folders the hosting step
+    makes, and rotated log files older than 14 days. Never touches: the database, your env file, keys, the current log, the venv, your code."""
+    n = 0
+    for base, dirs, _files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in KEEP_DIRS]
+        for d in [d for d in dirs if d in JUNK_DIRS]:
+            shutil.rmtree(Path(base) / d, ignore_errors=True)
+            dirs.remove(d)
+            n += 1
+    import glob
+    import tempfile
+    for p in glob.glob(str(Path(tempfile.gettempdir()) / "cheaperdeals_site_*")):
+        shutil.rmtree(p, ignore_errors=True)
+        n += 1
+    cutoff = time.time() - 14 * 86400
+    for logs in (root / "api" / "logs", dd / "logs"):
+        for f in logs.glob("*.log.*") if logs.exists() else []:
+            try:
+                if f.stat().st_mtime < cutoff:
+                    f.unlink()
+                    n += 1
+            except OSError:
+                pass
+    return n
+
+
+def goodbye(root: Path, dd: Path) -> None:
+    try:
+        n = tidy(root, dd)
+    except Exception:  # cleaning is a courtesy: it must never block closing
+        n = 0
+    say("")
+    say("=" * 60)
+    say(f"  Safai ho gayi: {n} faltu cheezein hata di (cache/temp)." if n else "  Safai ho gayi: kuch faltu bacha hi nahi.")
+    say("  Tumhara data, keys aur logs safe hain.")
+    say("  Goodbye! Phir milte hain. Bye bye!")
+    say("=" * 60)
 
 
 def free_port(start: int = 8000) -> int:
@@ -205,17 +269,20 @@ def main() -> None:
         say(f"  Cheape Deal is running:  {url}")
         say(f"  Username: {env_vars['ADMIN_USERNAME']}")
         say(f"  Password: {env_vars['ADMIN_PASSWORD']}")
-        say("  (simulated store and supplier, rehearsal mode ON)")
+        say("  (asli CJ se kaam; Rehearsal mode ON jab tak Live na karo)")
         say("  Press Ctrl+C in this window to stop.")
         say("=" * 60)
         if created:
-            say("  First time? Open Products > 'Add demo products', then Orders > 'Create test order'.")
-            say("  Then try: Connect (add a supplier), Import products, and watch Agents live.")
+            say("  Pehli baar? API Keys page par CJ key daalo, phir upar Start dabao: baaki sab khud hoga.")
         if not os.environ.get("CHEAPEDEAL_NO_BROWSER"):
             webbrowser.open(url)
         proc.wait()
     except KeyboardInterrupt:
-        say("\nStopping...")
+        say("\nBand kar raha hun... (kaam ruk raha hai, thoda ruko)")
+        try:  # Ctrl+C reached the server too: let it finish its own shutdown (flush logs, stop agents) before we step in
+            proc.wait(timeout=20)
+        except (subprocess.TimeoutExpired, KeyboardInterrupt):
+            pass
     finally:
         if proc.poll() is None:
             proc.terminate()
@@ -223,6 +290,7 @@ def main() -> None:
                 proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 proc.kill()
+        goodbye(ROOT, data_dir())
 
 
 if __name__ == "__main__":

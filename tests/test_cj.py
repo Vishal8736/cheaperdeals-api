@@ -67,6 +67,7 @@ def test_token_is_fetched_once_with_the_api_key_and_sent_as_header():
     assert [c[1] for c in CALLS].count("/authentication/getAccessToken") == 1  # cached, not asked again
     assert CALLS[0][3] == {"apiKey": "KEY"} and CALLS[1][4] == "AT1" and store["access_token"] == "AT1"
     assert items[0].supplier_product_id == "P1" and items[0].cost == Decimal("1.20") and CALLS[1][2]["keyWord"] == "case"
+    assert CALLS[1][2]["countryCode"] == "CN"  # browse the warehouse we ship from (not the destination): stock must be where we order from
 
 
 def test_wrong_key_gives_a_clear_hinglish_error():
@@ -197,3 +198,71 @@ def test_connection_test_inside_a_request_does_not_deadlock_sqlite_and_hides_tok
         assert "locked" not in "".join((c.last_error or "") for c in db.query(__import__("app.models", fromlist=["Connection"]).Connection).all())
         assert db.get(Setting, "cj_tokens:1") is not None  # the token was stored and committed
     assert "eyJ" not in scrub("boom API@CJ1@CJ:eyJ" + "a" * 60 + " [SQL: INSERT x]") and "[SQL" not in scrub("x [SQL: y]")
+
+
+def test_http_429_is_retried_with_backoff_and_then_succeeds():
+    """The 07:47 log: many `product/query ... HTTP 429` and 'Could not read supplier data ... CJ HTTP 429' alerts, because HTTP 429 was never retried."""
+    n = {"c": 0}
+    waits = []
+
+    def limited(r, b):
+        n["c"] += 1
+        return httpx.Response(429, json={}) if n["c"] <= 2 else _env({"content": []})
+    s, _ = _sup({"/product/listV2": limited})
+    s.sleep = waits.append
+    assert s.list_catalog("x") == [] and n["c"] == 3 and waits == [1.5, 3.0]
+    n["c"] = -99  # always 429: gives up after 4 tries with a retryable error, no endless loop
+    s2, _ = _sup({"/product/listV2": lambda r, b: httpx.Response(429, json={})})
+    with pytest.raises(SupplierError) as e:
+        s2.list_catalog("x")
+    assert e.value.retryable and e.value.status_code == 429 and [c[1] for c in CALLS].count("/product/listV2") == 4
+
+
+def test_create_order_is_never_retried_on_5xx_or_429():
+    s, _ = _sup({"/shopping/order/createOrderV2": lambda r, b: httpx.Response(503, json={})})
+    with pytest.raises(SupplierError):
+        s.create_order(_req("X"))
+    assert [c[1] for c in CALLS].count("/shopping/order/createOrderV2") == 1
+
+
+def test_calls_are_paced_one_second_apart_across_threads(monkeypatch):
+    import threading
+    from app.connectors import cj
+    monkeypatch.setattr(cj, "MIN_GAP", 1.0)
+    stamps = []
+    clock = {"t": 100.0}
+    monkeypatch.setattr(cj.time, "monotonic", lambda: clock["t"])
+    s, _ = _sup()
+
+    def fake_sleep(x):
+        clock["t"] += x
+    s.sleep = fake_sleep
+    orig = s._client.request
+
+    def logged(*a, **k):
+        stamps.append(clock["t"])
+        return orig(*a, **k)
+    s._client.request = logged
+    ts = [threading.Thread(target=lambda: s.list_catalog("x")) for _ in range(4)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    gaps = [b - a for a, b in zip(stamps, stamps[1:])]
+    assert len(stamps) >= 5 and all(g >= 0.999 for g in gaps), gaps
+
+
+def test_product_data_is_fetched_once_for_import_and_stock_check():
+    s, _ = _sup()
+    s.variants_of("P1")
+    s.get_product_info("P1|V1")
+    assert [c[1] for c in CALLS].count("/product/query") == 1
+
+
+def test_import_offers_only_variants_with_stock_in_our_warehouse_and_unknown_stock_is_not_zero():
+    s, _ = _sup({"/product/query": lambda r, b: _env({"pid": "P1", "variants": [
+        {"vid": "A", "variantSellPrice": 2, "inventories": [{"countryCode": "US", "totalInventory": 9}]},   # stock only in the US: not ours (CN)
+        {"vid": "B", "variantSellPrice": 3, "inventories": [{"countryCode": "CN", "totalInventory": 4}]}]})})
+    assert [v["vid"] for v in s.variants_of("P1")] == ["P1|B"]
+    s2, _ = _sup({"/product/query": lambda r, b: _env({"pid": "P1", "variants": [{"vid": "A", "variantSellPrice": 2}]})})  # no stock figures at all
+    with pytest.raises(SupplierError) as e:
+        s2.get_product_info("P1|A")
+    assert e.value.retryable and "stock" in str(e.value)

@@ -177,7 +177,7 @@ def stock_price_sync(db: Session, rt: Runtime) -> dict:
     stats = {"checked": 0, "repriced": 0, "hidden": 0, "unhidden": 0, "errors": 0, "failovers": 0}
     markup = S.get_decimal(db, "markup_pct")
     ending = S.get(db, "price_ending")
-    products = db.query(Product).filter(Product.supplier_vid != "", Product.source != "sourcing").order_by(Product.id).all()
+    products = db.query(Product).filter(Product.supplier_vid != "", Product.source != "sourcing", Product.kind != "affiliate").order_by(Product.id).all()
     fetched = _prefetch(rt, products)
     for p in products:
         stats["checked"] += 1
@@ -203,8 +203,11 @@ def stock_price_sync(db: Session, rt: Runtime) -> dict:
                 pass
         if info is None:
             stats["errors"] += 1
-            rt.alert(db, level="warning", source="stock_sync", message=f"Could not read supplier data for '{p.title}': {err}",
-                     dedupe_key=f"ss-{p.id}")
+            if isinstance(err, SupplierError) and err.retryable:  # CJ busy / slow down: the next run retries, nobody needs to be alerted for it
+                stats["retry_later"] = stats.get("retry_later", 0) + 1
+            else:
+                rt.alert(db, level="warning", source="stock_sync", message=f"Could not read supplier data for '{p.title}': {err}",
+                         dedupe_key=f"ss-{p.id}")
             continue
         new_cost = info.price
         if (p.cost_currency or "USD").upper() != "USD":  # the supplier quotes in another currency (e.g. INR): keep our books in USD
@@ -259,6 +262,8 @@ def stock_price_sync(db: Session, rt: Runtime) -> dict:
                      message=f"Could not change visibility of '{p.title}' in the store: {e}")
         db.commit()
     S.mark_run(db, "stock_price_sync", json.dumps(stats))
+    if stats.get("retry_later"):
+        agent_event(db, "stock", f"{stats['retry_later']} product ka supplier data abhi nahi mila (supplier busy): agli baar dobara dekhunga.", "warn")
     db.commit()
     return stats
 

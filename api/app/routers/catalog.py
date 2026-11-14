@@ -6,7 +6,7 @@ from decimal import Decimal
 import csv
 import io
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import BackgroundTasks, APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
@@ -48,7 +48,8 @@ def catalog_page(request: Request, source: int = 0, q: str = "", pg: int = 1, db
             error = str(e)
         except Exception as e:
             error = f"The supplier could not be reached: {e}"
-    return page(request, db, "catalog.html", sources=_sources(db, rt), source=source, q=q, pg=max(1, pg), items=items, error=error, have=have,
+    from ..services import autocatalog as AC
+    return page(request, db, "catalog.html", auto=AC.config(db), auto_have=AC.counts(db), sources=_sources(db, rt), source=source, q=q, pg=max(1, pg), items=items, error=error, have=have,
                 searched=searched, markup=S.get_decimal(db, "markup_pct"))
 
 
@@ -172,3 +173,37 @@ async def products_import(request: Request, file: UploadFile = File(...), db: Se
     db.flush()
     flash(request, "ok" if not errs else "warn", f"CSV: {made} added, {upd} updated" + (f", {len(errs)} skipped ({'; '.join(errs[:3])})" if errs else "") + ".")
     return back("/products")
+
+
+@router.post("/catalog/auto/save", dependencies=[Depends(verify_csrf)])
+async def auto_save(request: Request, db: Session = Depends(get_db)):
+    f = await request.form()
+    S.set_value(db, "auto_catalog", "true" if f.get("on") else "false")
+    kw = ", ".join(k.strip() for k in str(f.get("keywords") or "").replace("\n", ",").split(",") if k.strip())[:500]
+    S.set_value(db, "auto_catalog_keywords", kw)
+    for key, lo, hi in (("target", 1, 500), ("batch", 1, 25)):
+        try:
+            S.set_value(db, f"auto_catalog_{key}", str(max(lo, min(hi, int(float(str(f.get(key) or "0")))))))
+        except ValueError:
+            pass
+    S.set_value(db, "auto_catalog_cursor", "0:1")
+    db.commit()
+    flash(request, "ok", "Auto catalog ki setting save ho gayi.")
+    return back("/catalog")
+
+
+@router.post("/catalog/auto/run", dependencies=[Depends(verify_csrf)])
+def auto_run(request: Request, background: BackgroundTasks):
+    from ..services.job_runner import run_job
+    database, rt = request.app.state.database, request.app.state.rt
+
+    def go():
+        with database.SessionLocal() as s:
+            try:
+                run_job(s, rt, "catalog_run", trigger="manual")
+            except Exception:
+                import logging
+                logging.getLogger("cheapedeal.jobs").exception("manual catalog run failed")
+    background.add_task(go)
+    flash(request, "ok", "Catalog agent chal pada hai. 1-2 minute mein Live Agents page par naye products dikhenge.")
+    return back("/catalog")

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Affiliate + POD - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5">
+  <h1 class="display text-3xl font-extrabold">Affiliate + Print-on-Demand (30 connectors)</h1>
+  <p class="muted mt-1 max-w-[70ch]">Ab Cheape Deal 3 tarah se kamata hai: <b>dropship</b> (CJ), <b>affiliate</b> (product dikhao, visitor ko merchant ke tracked link par bhejo, commission network deta hai) aur <b>print-on-demand</b> (Printful/Printify print karke ship karte hain). Neeche 30 programs hain, jo sabse zyada commission publish karte hain wo upar.</p>
+  <div class="help mt-2" style="display:block">Commission ke numbers program ya directory ke bataye hue hain (source link ke saath, Nov 2026 mein dekhe). Rate merchant/category ke hisaab se badalta hai aur aksar badalta rehta hai: asli number tumhare network dashboard mein hota hai. Hum sirf <b>clicks</b> ginte hain; kitni kamai hui wo network ke dashboard mein dikhti hai, hum andaza nahi lagate.</div>
+</div>
+<div class="grid sm:grid-cols-4 gap-3 mb-5">
+  <div class="panel panel-b"><div class="muted text-sm">Affiliate products live</div><div class="display text-2xl font-extrabold">{{ stats.live }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Clicks (merchant ko bheje)</div><div class="display text-2xl font-extrabold">{{ stats.clicks }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Connected programs (test ok)</div><div class="display text-2xl font-extrabold">{{ connected }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Affiliate agent</div><div class="display text-2xl font-extrabold">{{ 'chalu' if cfg.on else 'band' }}</div></div>
+</div>
+<form method="post" action="/programs/settings" class="panel panel-b grid gap-3 mb-5">{{ csrf() }}
+  <b>Affiliate agent (khud products laata hai)</b>
+  <p class="help" style="display:block">Har ghante: jude hue programs mein neeche ke keywords se products dhundta hai, website par "Buy at ..." ke saath lagata hai. Feed wale programs ke naye prices lata hai aur jo product feed se hat gaya use chhupa deta hai (dead link par visitor nahi bhejta). Koi keyword na ho to feed ke shuru ke products aate hain.</p>
+  <div class="grid sm:grid-cols-[2fr_1fr_1fr_auto] gap-3 items-end">
+    <div><label class="f" for="kw">Keywords (comma se alag)</label><input class="in" id="kw" name="keywords" value="{{ cfg.keywords|join(', ') }}" placeholder="headphones, yoga mat, mug"></div>
+    <div><label class="f" for="tg">Kul affiliate products (target)</label><input class="in num" id="tg" name="target" value="{{ cfg.target }}" inputmode="numeric"></div>
+    <div><label class="f" for="bt">Ek round mein naye</label><input class="in num" id="bt" name="batch" value="{{ cfg.batch }}" inputmode="numeric"></div>
+    <label class="text-sm flex items-center gap-2"><input type="checkbox" name="on" {{ 'checked' if cfg.on }}> Chalu</label>
+  </div>
+  <div><button class="btn btn-accent btn-sm">Save karo</button></div>
+</form>
+
+{% if top %}<div class="panel mb-5"><div class="panel-h">Sabse zyada click wale</div><div class="panel-b grid gap-1 text-sm">
+  {% for p in top %}<div class="flex justify-between gap-3"><span class="truncate">{{ p.title }} <span class="muted">({{ p.merchant }})</span></span><b>{{ p.clicks }}</b></div>{% endfor %}</div></div>{% endif %}
+
+<div class="panel">
+  <div class="panel-h">Commission ke hisaab se (upar = zyada)</div>
+  <div class="overflow-x-auto"><table class="tbl">
+    <thead><tr><th>#</th><th>Program</th><th>Kya hai</th><th>Commission (jaisa bataya gaya)</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for p in programs %}
+    {% set cs = conns.get(p.key, []) %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td><b>{{ p.label }}</b>{% if p.signup %}<div><a class="underline text-sm" href="{{ p.signup }}" target="_blank" rel="noopener">Join / account</a></div>{% endif %}</td>
+      <td><span class="chip">{{ group_label[p.group] }}</span><div class="muted text-sm">{{ 'Live API search' if p.mode in ('amazon','ebay') else 'Print + ship supplier' if p.mode in ('printful','printify') else 'Product feed URL' }}</div></td>
+      <td>{{ p.commission }}{% if p.src %}<div><a class="underline text-sm" href="{{ p.src }}" target="_blank" rel="noopener">source</a></div>{% endif %}</td>
+      <td>{% for c in cs %}<div><span class="chip {{ 'chip-ok' if c.last_status=='ok' else 'chip-off' }}">{{ c.last_status }}</span> {{ per_conn.get(c.id, 0) }} products{% if clicks.get(c.id) %}, {{ clicks.get(c.id) }} clicks{% endif %}{% if c.last_error %}<div class="text-sm" style="color:#B42318">{{ c.last_error[:140] }}</div>{% endif %}</div>{% else %}<span class="muted">jura nahi</span>{% endfor %}</td>
+      <td class="whitespace-nowrap">
+        <a class="btn btn-accent btn-sm" href="/connect/new?type={{ p.key }}">{{ 'Aur jodo' if cs else 'Connect' }}</a>
+        {% for c in cs %}<a class="btn btn-ghost btn-sm" href="/connect/{{ c.id }}/edit">Edit</a>
+        {% if c.kind == 'affiliate' %}<details class="mt-1"><summary class="underline text-sm cursor-pointer">Abhi import</summary>
+          <form method="post" action="/programs/{{ c.id }}/import" class="grid gap-1 mt-1">{{ csrf() }}<input class="in" name="keywords" placeholder="keywords (khali = feed ke shuru ke)"><input class="in num" name="limit" value="20" inputmode="numeric" aria-label="Kitne">
+          <button class="btn btn-ghost btn-sm">Import karo</button></form></details>
+        {% else %}<a class="btn btn-ghost btn-sm" href="/catalog?source={{ c.id }}&go=1">Products laao</a>{% endif %}{% endfor %}
+      </td>
+    </tr>
+    <tr><td></td><td colspan="5"><details><summary class="underline text-sm cursor-pointer">Kaise jodo + kitna verify hua</summary><div class="help" style="display:block"><p>{{ p.howto }}</p><p class="mt-1"><b>Sach:</b> {{ p.verified }}</p></div></details></td></tr>
+    {% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

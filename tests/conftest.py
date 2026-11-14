@@ -92,3 +92,10 @@ def make_norm(order_id="1001", *, qty=1, unit="25.00", pid="P1", total=None, pai
         zip_code="411001", country_code="IN", country="India", total=Decimal(total) if total else unit_d * qty,
         currency="USD", items=[NormalizedItem(pid, "SKU1", "Desk Lamp", qty, unit_d)],
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_cj_pacing(monkeypatch):
+    """The real CJ connector keeps 1 second between calls; tests must not wait for it."""
+    from app.connectors import cj
+    monkeypatch.setattr(cj, "MIN_GAP", 0.0)

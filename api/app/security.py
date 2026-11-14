@@ -95,7 +95,7 @@ def totp_uri(secret: str, account: str, issuer: str = "Cheape Deal") -> str:
 
 
 # ---- roles: admin (everything) | operator (daily work, no settings/connections/system/users) | viewer (look only) ----
-ADMIN_ONLY = ("/settings", "/connect", "/system", "/users", "/email", "/keys", "/platforms", "/website/connect", "/diagnostics", "/assistant/settings", "/assistant/test", "/assistant/models", "/assistant/review")
+ADMIN_ONLY = ("/settings", "/connect", "/programs", "/system", "/users", "/email", "/keys", "/platforms", "/website/connect", "/diagnostics", "/assistant/settings", "/assistant/test", "/assistant/models", "/assistant/review")
 VIEWER_POST_OK = ("/logout", "/assistant/ask")
 
 

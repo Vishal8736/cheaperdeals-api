@@ -6,6 +6,20 @@
   <h1 class="display text-3xl font-extrabold">Import products</h1>
   <p class="muted mt-1 max-w-[64ch]">Browse a supplier's products, tick the ones you want, and import them as drafts. You review the price, then list them on your store or website from <a class="underline" href="/products?view=draft">Products</a>.</p>
 </div>
+<form method="post" action="/catalog/auto/save" class="panel panel-b grid gap-3 mb-5">{{ csrf() }}
+  <div class="flex flex-wrap items-center gap-3"><b>Auto catalog (agent khud products laata hai)</b>
+    <span class="chip {{ 'chip-ok' if auto.on else 'chip-off' }}">{{ 'chalu' if auto.on else 'band' }}</span>
+    <span class="muted text-sm">{{ auto_have.listed }} website par / {{ auto_have.imported }} import hue (target {{ auto.target }})</span></div>
+  <p class="help">Start dabane ke baad ye agent CJ mein neeche ke keywords se products dhundta hai, naye import karta hai, CJ se asli stock aur price padhta hai, aur jinme stock ho aur margin theek ho unhe website par laga deta hai. Har 30 minute mein chalta hai jab tak target poora na ho.</p>
+  <div class="grid sm:grid-cols-[2fr_1fr_1fr_auto] gap-3 items-end">
+    <div><label class="f" for="akw">Keywords (comma se alag)</label><input class="in" id="akw" name="keywords" value="{{ auto.keywords|join(', ') }}"></div>
+    <div><label class="f" for="atg">Website par kitne products</label><input class="in num" id="atg" name="target" value="{{ auto.target }}" inputmode="numeric"></div>
+    <div><label class="f" for="abt">Ek baar mein kitne naye</label><input class="in num" id="abt" name="batch" value="{{ auto.batch }}" inputmode="numeric"></div>
+    <label class="text-sm flex items-center gap-2"><input type="checkbox" name="on" {{ 'checked' if auto.on }}> Chalu</label>
+  </div>
+  <div class="flex gap-2"><button class="btn btn-accent btn-sm">Save karo</button>
+    <button class="btn btn-ghost btn-sm" formaction="/catalog/auto/run" title="Abhi ek round chalao (engine Start hona chahiye)">Abhi chalao</button></div>
+</form>
 <form method="get" action="/catalog" class="panel panel-b grid sm:grid-cols-[1fr_1.4fr_auto] gap-3 items-end mb-5">
   <input type="hidden" name="go" value="1">
   <div><label class="f" for="src">Supplier</label><select class="in" id="src" name="source"><span class="help" style="display:block">Kis supplier ka catalog dekhna hai (Connect page par jode hue).</span>{% for id, name in sources %}<option value="{{ id }}" {{ 'selected' if id == source }}>{{ name }}</option>{% endfor %}</select></div>

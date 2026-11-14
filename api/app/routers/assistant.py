@@ -43,7 +43,20 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(400, "Bad request")
     hist = body.get("history") if isinstance(body.get("history"), list) else []
     hist = [m for m in hist if isinstance(m, dict)]
-    return JSONResponse(AI.ask(db, hist, str(body.get("message", ""))))
+    return JSONResponse(AI.ask(db, hist, str(body.get("message", "")), with_code=request.session.get("role", "admin") == "admin"))
+
+
+@router.get("/ai/notices")
+def ai_notices(request: Request, after: int = -1, db: Session = Depends(get_db)):
+    """The companion polls this: new problems it noticed on its own (nothing is replayed to a fresh browser)."""
+    from ..services import companion
+    return JSONResponse(companion.since(db, after), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/ai/chatter")
+def ai_chatter(request: Request, db: Session = Depends(get_db)):
+    from ..services import companion
+    return JSONResponse({"line": companion.chatter(db)}, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/assistant/settings", dependencies=[Depends(verify_csrf)])

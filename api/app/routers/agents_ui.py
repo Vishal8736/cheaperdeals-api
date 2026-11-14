@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -35,7 +37,16 @@ def agents_run(job: str, request: Request, db: Session = Depends(get_db), rt=Dep
 
 @router.post("/agents/run-all", dependencies=[Depends(verify_csrf)])
 def agents_run_all(request: Request, db: Session = Depends(get_db), rt=Depends(get_rt)):
+    failed = []
     for job in JOB_AGENT:
-        run_job(db, rt, job, trigger="manual")
-    flash(request, "ok", "Every agent ran once.")
+        try:
+            run_job(db, rt, job, trigger="manual")
+        except Exception as e:  # one agent's problem must not stop the others (it is logged with a trace)
+            logging.getLogger("cheapedeal.jobs").exception("run-all: job %s failed", job)
+            db.rollback()
+            failed.append(f"{A.AGENTS[JOB_AGENT[job]]['name']} ({type(e).__name__})")
+    if failed:
+        flash(request, "warn", "Baaki agents chal gaye. Ye ruke: " + ", ".join(failed) + ". Wajah Diagnostics page par hai.")
+    else:
+        flash(request, "ok", "Har agent ek baar chal gaya.")
     return back("/agents")

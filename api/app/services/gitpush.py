@@ -37,6 +37,16 @@ def project_files() -> list[Path]:
     return out
 
 
+def fingerprint() -> str:
+    """One short hash of every file we would upload: changes whenever the code changes, so Start knows the server is behind."""
+    import hashlib
+    h = hashlib.sha256()
+    for p in project_files():
+        h.update(p.relative_to(ROOT).as_posix().encode())
+        h.update(p.read_bytes())
+    return h.hexdigest()[:16]
+
+
 def _call(token: str, method: str, path: str, **kw):
     r = C.client().request(method, API + path, headers={"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}, **kw)
     return r
@@ -59,6 +69,19 @@ def repo_exists(token: str, name: str) -> dict:
     me = _ok(_call(token, "GET", "/user"), "user")["login"]
     r = _call(token, "GET", f"/repos/{me}/{name}")
     return {"me": me, "exists": r.status_code == 200, "url": f"https://github.com/{me}/{name}"}
+
+
+def set_private(token: str, name: str, private: bool = True) -> dict:
+    """Change github.com/<you>/<name> to private (or public) and read it back, so we only say 'done' when GitHub really shows it."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", name or ""):
+        raise GitError("Repo ka naam sahi nahi hai.")
+    me = _ok(_call(token, "GET", "/user"), "user")["login"]
+    base = f"/repos/{me}/{name}"
+    cur = _ok(_call(token, "GET", base), "repo dekhna")
+    if bool(cur.get("private")) != private:
+        _ok(_call(token, "PATCH", base, json={"private": private}), "repo visibility")
+        cur = _ok(_call(token, "GET", base), "repo dobara dekhna")
+    return {"me": me, "url": f"https://github.com/{me}/{name}", "private": bool(cur.get("private"))}
 
 
 def _tree(token: str, base: str, entries: list[dict]) -> dict:

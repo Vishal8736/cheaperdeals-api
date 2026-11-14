@@ -41,6 +41,29 @@ def ensure_cj(db: Session, mgr, api_key: str) -> str:
         return f"failed: {e}"
 
 
+def verify_suppliers(database, mgr, max_age_hours: int = 6) -> int:
+    """Test every enabled REAL supplier whose last test is missing, failed or old, so the Connect page shows 'Connected' (ready) without anybody pressing Test.
+    Runs in the background after start-up (a network call). Returns how many were tested. Never raises."""
+    from datetime import timedelta
+
+    from ..db import utcnow
+    n = 0
+    try:
+        with database.session() as s:
+            for c in s.query(Connection).filter(Connection.kind == "supplier", Connection.enabled.is_(True)).all():
+                if c.type.startswith("mock_"):
+                    continue
+                if c.last_status == "ok" and c.last_tested_at and utcnow() - c.last_tested_at < timedelta(hours=max_age_hours):
+                    continue
+                ok, msg = mgr.test(s, c)
+                log.info("%s test: %s", c.name, "ready" if ok else f"fail: {msg[:120]}")
+                n += 1
+            s.commit()
+    except Exception as e:
+        log.warning("supplier self-test failed: %s", e)
+    return n
+
+
 def disable_removed_connections(db: Session, mgr) -> int:
     """Connections whose type no longer exists (e.g. the removed AliExpress) are switched off and un-defaulted; their orders are held, never faked."""
     n = 0

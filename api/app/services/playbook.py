@@ -181,7 +181,7 @@ def run(db: Session, rt, now: datetime | None = None) -> dict:
         return stats
     c, now = cfg(db), now or utcnow()
     sale = active_sale(db, now.date())
-    for p in db.query(Product).filter(Product.active.is_(True), Product.listing_status == "listed").all():
+    for p in db.query(Product).filter(Product.active.is_(True), Product.listing_status == "listed", Product.kind != "affiliate").all():
         try:
             if p.playbook_since is None:
                 p.playbook_since = now

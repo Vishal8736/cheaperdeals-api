@@ -19,12 +19,12 @@ from . import sync as Y
 from .agents import track
 
 JOB_AGENT = {"process_pending": "router", "intake_sweep": "sweeper", "tracking_sync": "tracking",
-             "stock_price_sync": "stock", "reconcile": "reconciler", "strategy_run": "strategist", "maintenance": "reporter", "price_watch": "scout", "heartbeat": "reporter", "playbook_run": "playbook", "ai_review": "advisor", "sim_tick": "simulator", "shop_watch": "shop"}
+             "stock_price_sync": "stock", "reconcile": "reconciler", "strategy_run": "strategist", "maintenance": "reporter", "price_watch": "scout", "heartbeat": "reporter", "playbook_run": "playbook", "ai_review": "advisor", "shop_watch": "shop", "catalog_run": "catalog", "affiliate_run": "affiliate"}
 
 
 def run_job(db: Session, rt, job: str, trigger: str = "scheduler") -> dict:
     agent = JOB_AGENT[job]
-    quiet = job in {"process_pending", "intake_sweep", "tracking_sync", "maintenance", "heartbeat", "ai_review", "shop_watch"}  # run often; only show runs that did something
+    quiet = job in {"process_pending", "intake_sweep", "tracking_sync", "maintenance", "heartbeat", "ai_review", "shop_watch", "catalog_run", "affiliate_run"}  # run often; only show runs that did something
     with track(db, agent, trigger, quiet_if_idle=quiet) as run:
         if job == "process_pending":
             res = O.process_pending(db, rt)
@@ -66,6 +66,27 @@ def run_job(db: Session, rt, job: str, trigger: str = "scheduler") -> dict:
                 run.done(0, "Off (press Start or turn strategies on in Playbook)")
             else:
                 run.done(res["changes"], f"{res['repriced']} repriced, {res['switched']} supplier switches, {res['retired']} retired, {res['restored']} back to normal")
+        elif job == "catalog_run":
+            from . import autocatalog as AC
+            res = AC.run(db, rt)
+            if res.get("paused"):
+                run.done(0, "Paused")
+            elif res.get("off"):
+                run.done(0, "Auto catalog band hai (Catalog page par chalu karo)")
+            elif res.get("full"):
+                run.done(0, f"Catalog bhara hua: {res['listed']}/{res['target']} products website par")
+            else:
+                run.done(int(res.get("listed", 0)) + int(res.get("imported", 0)),
+                         f"{res.get('imported', 0)} naye product aaye, {res.get('listed', 0)} website par lage, {res.get('drafts', 0)} draft mein ruke"
+                         + (f". Rukawat: {res['error']}" if res.get("error") else ""))
+        elif job == "affiliate_run":
+            from . import affiliate as AF
+            res = AF.run(db, rt)
+            if res.get("paused") or res.get("none") or res.get("off"):
+                run.done(0, "Paused" if res.get("paused") else "Koi affiliate connection nahi (Programs page se jodo)" if res.get("none") else "Band hai (Programs page par chalu karo)")
+            else:
+                run.done(int(res["imported"]) + int(res["repriced"]) + int(res["hidden"]), f"{res['imported']} naye product, {res['repriced']} ke prices badle, {res['hidden']} feed se hat gaye"
+                         + (f". {res['errors']} program mein dikkat (Diagnostics/Agents dekho)" if res["errors"] else ""))
         elif job == "shop_watch":
             from . import shop as SH, supplies
             res = SH.watch(db, rt)
@@ -73,7 +94,8 @@ def run_job(db: Session, rt, job: str, trigger: str = "scheduler") -> dict:
             run.done(res["expired"], f"Website: {res['expired']} purane unpaid order band" + (f"; {bal}" if bal else ""))
         elif job == "ai_review":
             res = AI.review(db)
-            run.done(1 if res["state"] == "done" else 0, "AI ne system dekha aur salah likhi" if res["state"] == "done" else str(res.get("why", res["state"])))
+            built_in = str(res.get("text", "")).startswith("Built-in")
+            run.done(1 if res["state"] == "done" else 0, ("Built-in jaanch ki (AI model nahi jura)" if built_in else "AI ne system dekha aur salah likhi") if res["state"] == "done" else str(res.get("why", res["state"])))
         elif job == "price_watch":
             res = PF.run(db, rt)
             if res.get("paused") or res.get("off"):

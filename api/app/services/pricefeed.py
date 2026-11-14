@@ -142,7 +142,7 @@ def run(db: Session, rt) -> dict:
         return stats
     ST.seed_markets(db)
     markets = [m for m in db.query(Market).filter(Market.enabled.is_(True)).all() if m.code.upper() in MARKETPLACE]
-    jobs = [("product", p) for p in db.query(Product).filter(Product.search_query != "", Product.active.is_(True)).all()]
+    jobs = [("product", p) for p in db.query(Product).filter(Product.search_query != "", Product.active.is_(True), Product.kind != "affiliate").all()]
     cap = 60  # eBay's free allowance is generous but be polite: at most this many searches per run
     n = 0
     for kind, obj in jobs:

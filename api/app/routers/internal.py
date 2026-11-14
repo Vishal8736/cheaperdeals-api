@@ -24,7 +24,7 @@ def _job(name: str):
 
 for _path, _name in (("process-pending", "process_pending"), ("intake-sweep", "intake_sweep"), ("tracking-sync", "tracking_sync"),
                      ("stock-price-sync", "stock_price_sync"), ("reconcile", "reconcile"), ("strategy-run", "strategy_run"), ("maintenance", "maintenance"),
-                     ("price-watch", "price_watch"), ("playbook", "playbook_run"), ("ai-review", "ai_review"), ("heartbeat", "heartbeat")):
+                     ("price-watch", "price_watch"), ("playbook", "playbook_run"), ("ai-review", "ai_review"), ("heartbeat", "heartbeat"), ("catalog", "catalog_run"), ("affiliate", "affiliate_run")):
     router.add_api_route(f"/jobs/{_path}", _job(_name), methods=["POST"], name=f"job_{_name}")
 
 
@@ -120,5 +120,9 @@ def engine_start(body: EngineStartIn, request: Request, db: Session = Depends(ge
 def engine_status(db: Session = Depends(get_db)):
     from ..services import engine
     from ..services import settings_service as S
-    from ..models import Product
-    return {"running": engine.running(db), "dry_run": S.get_bool(db, "dry_run"), "products": db.query(Product).count(), "version": VERSION}
+    from ..models import AgentEvent, Product
+    from ..services import autocatalog
+    c = autocatalog.counts(db)
+    err = db.query(AgentEvent).filter(AgentEvent.agent == "catalog", AgentEvent.level == "warn").order_by(AgentEvent.id.desc()).first()
+    return {"running": engine.running(db), "dry_run": S.get_bool(db, "dry_run"), "products": db.query(Product).count(), "listed": c["listed"],
+            "catalog_error": (err.message[:160] if err and c["listed"] == 0 else ""), "version": VERSION}

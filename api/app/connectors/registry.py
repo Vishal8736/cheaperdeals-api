@@ -29,6 +29,7 @@ class ConnectorType:
     factory: Callable[[dict, dict, dict], Any]  # (config, secrets, ctx) -> adapter
     source: str = "built-in"  # built-in | file
     file: str = ""
+    program: object = None  # v18: the affiliate / POD program this type belongs to (connectors/programs.py), None for the older types
 
 
 def _woo(cfg: dict, sec: dict, ctx: dict):
@@ -141,6 +142,23 @@ def load_connector_files(folder: Path) -> tuple[list[ConnectorType], dict[str, s
             errors[path.name] = f"{type(e).__name__}: {e}"
     return types, errors
 
+
+def _program_types() -> list[ConnectorType]:
+    from . import affiliate_sources as AS, pod
+    from .programs import PROGRAMS, fields_for
+
+    def make(p):
+        def factory(cfg: dict, sec: dict, ctx: dict, _p=p):
+            prog = {"key": _p.key, "label": _p.label}
+            return {"feed": AS.FeedSource, "amazon": AS.AmazonCreatorsSource, "ebay": AS.EbaySource}[_p.mode](cfg, sec, prog) if _p.mode in ("feed", "amazon", "ebay") \
+                else (pod.PrintfulSupplier if _p.mode == "printful" else pod.PrintifySupplier)(cfg, sec)
+        kind = "supplier" if p.mode in ("printful", "printify") else "affiliate"
+        desc = f"{p.commission}. {p.howto}"
+        return ConnectorType(p.key, kind, p.label, desc, fields_for(p), factory, program=p)
+    return [make(p) for p in PROGRAMS]
+
+
+BUILTIN.extend(_program_types())
 
 for _t in BUILTIN:
     for _f in _t.fields:

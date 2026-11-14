@@ -198,4 +198,4 @@ def test_supplier_connector_files_are_refused_builtin_suppliers_only(tmp_path):
     types, errors = load_connector_files(tmp_path)
     assert types == [] and "Supplier connector files are switched off" in errors["sup.py"]
     from app.connectors.registry import BUILTIN
-    assert sorted(t.key for t in BUILTIN if t.kind == "supplier") == ["cj_dropshipping", "mock_supplier"]
+    assert sorted(t.key for t in BUILTIN if t.kind == "supplier") == ["cj_dropshipping", "mock_supplier", "pod_printful", "pod_printify"]

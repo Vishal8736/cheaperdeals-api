@@ -223,7 +223,7 @@ def test_multi_model_fallback_and_auto_rotation(db, monkeypatch):
 def test_advisor_review(db, monkeypatch):
     from app.models import AgentEvent
     AI.SECRET_KEY = "s" * 32; AI._bad.clear()
-    assert AI.review(db)["state"] == "off"  # no AI configured
+    assert AI.review(db)["state"] == "done" and "Built-in jaanch" in S.get(db, "ai_brief")  # no AI model: plain real-number checks (v16.5)
     AI.save_config(db, "https://api.example.com/v1", "k", "m1", "openai", auto=True); db.commit()
     S.set_value(db, "paused", "true"); db.commit()
     assert AI.review(db)["state"] == "off"  # engine stopped
@@ -232,7 +232,7 @@ def test_advisor_review(db, monkeypatch):
     monkeypatch.setattr(AI, "HTTP", lambda u, h, p: (calls.append(p) or {"choices": [{"message": {"content": "- Sab theek hai\n- Alerts dekho"}}]}))
     r = AI.review(db); db.commit()
     assert r["state"] == "done" and "Sab theek" in S.get(db, "ai_brief")
-    assert db.query(AgentEvent).filter(AgentEvent.agent == "advisor").count() == 1
+    assert db.query(AgentEvent).filter(AgentEvent.agent == "advisor").count() == 2  # built-in check + the AI review
     assert "asha@example.com" not in str(calls[0])
     assert AI.review(db)["state"] == "same" and len(calls) == 1  # nothing changed: no second paid call
 

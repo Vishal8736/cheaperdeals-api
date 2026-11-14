@@ -69,8 +69,11 @@ def sellable(db: Session):
 
 
 def _item(p: Product) -> dict:
-    return {"id": p.id, "title": p.title, "price_usd": str(money(p.selling_price)), "image": p.image_url, "category": p.category or "",
-            "description": (p.description or "")[:600], "stock": min(int(p.stock), 20)}
+    d = {"id": p.id, "title": p.title, "price_usd": str(money(p.selling_price)), "image": p.image_url, "category": p.category or "",
+         "description": (p.description or "")[:600], "stock": min(int(p.stock), 20)}
+    if p.kind == "affiliate":  # no cart for these: the page shows "Buy at <merchant>" and opens our tracked /shop/go link
+        d.update({"affiliate": True, "merchant": p.merchant or "partner", "go": f"/shop/go/{p.id}"})
+    return d
 
 
 def products(db: Session) -> list[dict]:
@@ -106,6 +109,8 @@ def quote(db: Session, lines, currency: str = "") -> dict:
         p = sellable(db).filter(Product.id == pid).first()
         if p is None:
             raise ValueError("Cart ka ek item ab available nahi hai. Cart refresh karo.")
+        if p.kind == "affiliate":
+            raise ValueError("Ye product partner site par kharida jata hai, cart mein nahi aata.")
         if qty > int(p.stock):
             raise ValueError(f"'{p.title}' ke sirf {int(p.stock)} piece bache hain.")
         out.append((p, qty))
