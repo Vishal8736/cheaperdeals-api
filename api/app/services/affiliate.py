@@ -9,7 +9,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from ..db import utcnow
-from ..models import Connection, Product
+from ..models import Click, Connection, Product
 from . import fx
 from . import settings_service as S
 from .agents import event
@@ -105,8 +105,13 @@ def run(db: Session, rt) -> dict:
     if not cfg["on"]:
         return {"off": True}
     out = {"imported": 0, "repriced": 0, "hidden": 0, "errors": 0}
+    from . import earnings as EA
+    EA.prune_clicks(db)
     for conn in conns:
         try:
+            if conn.type in ("aff_awin", "aff_impact", "aff_cj_affiliate") and not rt.connectors.secrets_of(conn).get("feed_url"):
+                conn.last_status, conn.last_error = "ok", ""  # earnings-only connection: nothing to import
+                continue
             adapter = rt.connectors.build(conn)
             if hasattr(adapter, "load"):
                 r = refresh_from_feed(db, conn, adapter)
@@ -153,5 +158,11 @@ def go_url(db: Session, pid: int) -> str | None:
         return None
     p.clicks = int(p.clicks or 0) + 1
     p.last_click_at = utcnow()
+    db.add(Click(product_id=p.id))
+    url = p.affiliate_url
+    conn = db.get(Connection, p.supplier_connection_id) if p.supplier_connection_id else None
+    if conn is not None:
+        from . import earnings
+        url = earnings.with_subid(conn.type, url, p.id)  # tag so the network's report names the product that earned
     db.commit()
-    return p.affiliate_url
+    return url

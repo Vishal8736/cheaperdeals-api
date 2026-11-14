@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Business switchboard - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5">
+  <h1 class="display text-3xl font-extrabold">Business switchboard</h1>
+  <p class="muted mt-1 max-w-[72ch]">Yahan se har business ko alag chalu/band karo, ya jitne chahiye unhe tick karke ek saath <b>Start</b> karo. Band business ke sirf apne agents sote hain; baaki chalte rehte hain. Har business ki apni website ho sakti hai.</p>
+</div>
+<form method="post" action="/business/bulk" class="grid gap-4 mb-6">{{ csrf() }}
+  <div class="grid md:grid-cols-2 gap-4">
+  {% for b in rows %}
+    <section class="panel {{ 'opacity-70' if not b.built }}" aria-labelledby="b-{{ b.key }}">
+      <div class="panel-h"><label class="flex items-center gap-2"><input type="checkbox" name="keys" value="{{ b.key }}" {{ 'checked' if b.on }} {{ 'disabled' if not b.built }}>
+        <h2 id="b-{{ b.key }}" class="display text-lg font-bold">{{ b.label }}</h2></label>
+        {% if not b.built %}<span class="chip chip-warn">jaldi (v21)</span>{% elif b.on %}<span class="chip chip-ok">ON</span>{% else %}<span class="chip chip-warn">OFF</span>{% endif %}</div>
+      <div class="panel-b grid gap-2 text-sm">
+        <p class="muted">{{ b.blurb }}</p>
+        <p class="text-xs muted">Kaise: {{ b.api }}</p>
+        {% if b.stats %}<div class="flex flex-wrap gap-x-5 gap-y-1">{% for k, v in b.stats %}<span><b class="num">{{ v }}</b> <span class="muted">{{ k }}</span></span>{% endfor %}</div>{% endif %}
+        <div class="flex flex-wrap items-center gap-2">
+          {% if b.built %}<button class="btn btn-ghost btn-sm" type="submit" formaction="/business/toggle?key={{ b.key }}" name="on" value="{{ '0' if b.on else '1' }}">{{ 'Band karo' if b.on else 'Chalu karo' }}</button>{% endif %}
+          <a class="underline" href="{{ b.page }}">{{ b.label }} page</a>
+        </div>
+      </div>
+    </section>
+  {% endfor %}
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <button class="btn btn-accent" name="action" value="start">Tick kiye hue Start</button>
+    <button class="btn btn-ghost" name="action" value="stop">Tick kiye hue Stop</button>
+    <button class="btn btn-ghost" name="action" value="start_all">Sab Start</button>
+    <button class="btn btn-ghost" name="action" value="stop_all">Sab Stop</button>
+  </div>
+  <p class="help" style="display:block">Start = tick kiye business ON karke upar wala Start chalata hai (Render/Vercel check aur update bhi). Stop sirf tick kiye business band karta hai.</p>
+</form>
+
+<section class="panel" aria-labelledby="ws-h"><div class="panel-h"><h2 id="ws-h" class="display text-lg font-bold">Har business ki apni website</h2></div>
+  <div class="panel-b grid gap-3 text-sm">
+    <p class="muted">Ek hi backend teen/char alag websites ko chalata hai. Har website ek alag Vercel project hoti hai jisme <code>config.js</code> mein <code>SHOP_BIZ</code> (affiliate / pod / dropship) set hota hai, aur wo sirf apne business ke products dikhati hai. Zip ke <code>storefront-sites/</code> folder mein har business ka taiyaar folder hai: use apne Vercel project par deploy karo, phir uska link yahan likh do.
+    Abhi in alag websites ko Start khud deploy nahi karta (agla version).</p>
+    {% for b in rows if b.built %}
+    <form method="post" action="/business/site" class="grid sm:grid-cols-[10rem_1fr_auto] gap-2 items-center">{{ csrf() }}<input type="hidden" name="key" value="{{ b.key }}">
+      <label class="f" for="u-{{ b.key }}">{{ b.label }}</label><input class="in" id="u-{{ b.key }}" name="url" value="{{ b.site }}" placeholder="https://mera-{{ b.key }}.vercel.app"><button class="btn btn-ghost btn-sm">Save</button></form>
+    {% endfor %}
+  </div></section>
+{% endblock %}

@@ -113,9 +113,19 @@ def fields_for(p: Program) -> list[Field]:
     if p.mode == "printful":
         return [Field("api_token", "Printful API token", secret=True, help="Printful dashboard > Settings > API."), Field("store_id", "Store ID (sirf account-level token par)", required=False)]
     if p.mode == "printify":
-        return [Field("api_token", "Printify Personal Access Token", secret=True, help="Printify > Account > Connections."), Field("shop_id", "Shop ID (optional)", required=False, help="Ek hi shop ho to khud mil jata hai.")]
-    return [Field("feed_url", "Product feed URL", secret=True, help="Isme aksar tumhari API key hoti hai, isliye chhupa kar (encrypted) rakha jata hai."),
+        return [Field("api_token", "Printify Personal Access Token", secret=True, help="Printify > Account > Connections."), Field("shop_id", "Shop ID (optional)", required=False, help="Ek hi shop ho to khud mil jata hai."),
+                Field("print_provider_id", "Print provider ID (optional)", required=False, help="Khali chhodo to har product ke liye pehla provider chunta hai. Printify > Catalog mein provider ki ID dekh sakte ho.")]
+    earn = {
+        "aff_awin": [Field("awin_publisher_id", "Awin Publisher ID (earnings ke liye)", required=False, help="Awin > Account > Overview mein Publisher ID."),
+                     Field("awin_api_token", "Awin API token (earnings ke liye)", secret=True, required=False, help="Awin > Account > API Credentials > OAuth2 token. Isse commission/earnings padhe jaate hain.")],
+        "aff_impact": [Field("impact_account_sid", "impact Account SID (earnings ke liye)", required=False, help="impact.com > Settings > API: Account SID."),
+                       Field("impact_auth_token", "impact Auth Token (earnings ke liye)", secret=True, required=False, help="Wahi API page par Auth Token.")],
+        "aff_cj_affiliate": [Field("cj_publisher_id", "CJ Publisher (company) ID (earnings ke liye)", required=False, help="CJ Account > Account Settings mein Company/Publisher ID (number)."),
+                             Field("cj_token", "CJ Personal Access Token (earnings ke liye)", secret=True, required=False, help="developers.cj.com > Authentication > Personal Access Token.")],
+    }.get(p.key, [])
+    return [Field("feed_url", "Product feed URL" + (" (earnings-only ho to khali chhodo)" if earn else ""), secret=True, required=not earn,
+                  help="Isme aksar tumhari API key hoti hai, isliye chhupa kar (encrypted) rakha jata hai."),
             Field("deeplink_prefix", "Tracking link template (optional)", required=False, default=d.get("deeplink_prefix", ""), help="Sirf tab jab feed mein plain merchant link ho. {url_enc} ya {url} ki jagah product link lagta hai."),
             Field("merchant", "Dukaan ka naam (optional)", required=False, placeholder=p.label.split(" (")[0], help="Storefront par 'Buy at ...' mein dikhta hai."),
             Field("commission_pct", "Commission % (optional)", required=False, help="Feed mein na ho to apni dashboard ka number likho; sirf tumhare reports ke liye."),
-            Field("currency", "Feed ki currency", required=False, default=d.get("currency", "USD"), help="Feed mein currency na ho to ye maani jati hai (USD, INR, GBP, EUR ...).")]
+            Field("currency", "Feed ki currency", required=False, default=d.get("currency", "USD"), help="Feed mein currency na ho to ye maani jati hai (USD, INR, GBP, EUR ...).")] + earn

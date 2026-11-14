@@ -4,6 +4,13 @@
 {% block content %}
 <h1 class="display text-3xl font-extrabold mb-5">Settings</h1>
 
+<section class="panel mb-6" aria-labelledby="bm-h"><div class="panel-h"><h2 id="bm-h" class="display text-lg font-bold">Business mode: {{ 'Affiliate' if mode == 'affiliate' else 'Dropship (purana)' }}</h2></div>
+<div class="panel-b">
+  <p class="muted text-sm mb-3">{% if mode == 'affiliate' %}Abhi project <b>affiliate</b> ki tarah chal raha hai: products dikhte hain, "Buy at ..." se visitor merchant ke tracked link par jata hai, aur kamai network ki API se aati hai. Dropship wale agents (orders, supplier, pricing) soye hue hain aur unke menu chhupe hain.{% else %}Abhi <b>dropship</b> mode hai (cart, orders, CJ). Affiliate wale pages bhi khule hain.{% endif %}
+  Ye switch isi server ka hai (Render par alag hai).</p>
+  <form method="post" action="/settings/mode" onsubmit="return confirm('Mode badalna hai?')">{{ csrf() }}<input type="hidden" name="mode" value="{{ 'dropship' if mode == 'affiliate' else 'affiliate' }}"><button class="btn btn-ghost btn-sm">{{ 'Dropship mode chalu karo' if mode == 'affiliate' else 'Affiliate mode par wapas jao' }}</button></form>
+</div></section>
+
 <section class="panel mb-6" id="go-live" aria-labelledby="ctl-h"><div class="panel-h"><h2 id="ctl-h" class="display text-lg font-bold">Controls</h2></div>
 <div class="panel-b grid md:grid-cols-2 gap-6">
   <div><h3 class="font-bold mb-1">Kill switch</h3>

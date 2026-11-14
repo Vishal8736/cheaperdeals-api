@@ -6,6 +6,7 @@ Printful: endpoints and order fields from Printful's developer docs (store/produ
 None of this was run against a real account."""
 from __future__ import annotations
 
+import base64
 import json
 from decimal import Decimal
 from typing import Optional
@@ -87,6 +88,25 @@ class PrintfulSupplier:
         cost = self.base_cost(sv)
         return SupplierProductInfo(vid=str(vid), stock=999, price=cost)
 
+    def publish_design(self, *, spec: dict, title: str, description: str, markup: Decimal, design_url: str, **_: object) -> str:
+        """Create a sync product at Printful: find the catalog product by words, pick variants, upload by public design URL. Returns the sync product id."""
+        from ..services import pod_publish as PP
+        cat = (self._get("/products", "Printful catalog").get("result")) or []
+        prod = PP.pick_title([c for c in cat if not c.get("is_discontinued")], spec, key=lambda c: f"{c.get('title', '')} {c.get('type_name', '')}")
+        if not prod:
+            raise SupplierError(f"Printful catalog mein '{spec['label']}' nahi mila.")
+        det = (self._get(f"/products/{prod['id']}", "Printful product").get("result")) or {}
+        vs = [v for v in det.get("variants") or [] if v.get("in_stock", True) and parse_price(v.get("price")) is not None]
+        pick = PP.pick_variants(vs, spec)
+        if not pick:
+            raise SupplierError(f"Printful '{prod.get('title')}' ke variants stock mein nahi.")
+        body = {"sync_product": {"name": title, "thumbnail": design_url},
+                "sync_variants": [{"variant_id": v["id"], "retail_price": str(PP.retail_price(parse_price(v["price"]), markup)), "files": [{"url": design_url}]} for v in pick]}
+        r = (_call("POST", self.BASE + "/store/products", self.h, body, what="Printful create product").get("result")) or {}
+        if not r.get("id"):
+            raise SupplierError("Printful ne product ka id nahi diya.")
+        return str(r["id"])
+
     def create_order(self, req: SupplierOrderRequest) -> SupplierOrderResult:
         body = {"external_id": req.order_number, "shipping": "STANDARD",
                 "recipient": {"name": req.customer_name, "address1": req.address1, "address2": req.address2, "city": req.city, "state_code": req.province,
@@ -125,6 +145,7 @@ class PrintifySupplier:
     def __init__(self, cfg: dict, sec: dict):
         self.h = {"Authorization": f"Bearer {sec.get('api_token', '')}", "User-Agent": "CheapeDeal/18"}  # Printify requires a User-Agent
         self.shop = str(cfg.get("shop_id") or "").strip()
+        self.provider_id = str(cfg.get("print_provider_id") or "").strip()
 
     def _shop(self) -> str:
         if self.shop:
@@ -163,6 +184,38 @@ class PrintifySupplier:
             if str(v.get("id")) == vnum and v.get("cost") is not None:
                 return SupplierProductInfo(vid=vid, stock=999 if v.get("is_available", True) and v.get("is_enabled", True) else 0, price=(Decimal(str(v["cost"])) / 100).quantize(Decimal("0.01")))
         raise SupplierError("Printify: ye variant ab nahi mila.")
+
+    def publish_design(self, *, spec: dict, title: str, description: str, png: bytes, fixed_price: Decimal, **_: object) -> str:
+        """Create a product in the Printify shop: blueprint by words, first print provider (or cfg print_provider_id), upload the PNG (base64), variants of one colour."""
+        from ..services import pod_publish as PP
+        bps = _call("GET", self.BASE + "/catalog/blueprints.json", self.h, what="Printify catalog")
+        bps = bps if isinstance(bps, list) else bps.get("data", [])
+        bp = PP.pick_title(bps, spec, key=lambda b: b.get("title", ""))
+        if not bp:
+            raise SupplierError(f"Printify catalog mein '{spec['label']}' nahi mila.")
+        provs = _call("GET", self.BASE + f"/catalog/blueprints/{bp['id']}/print_providers.json", self.h, what="Printify providers")
+        provs = provs if isinstance(provs, list) else provs.get("data", [])
+        if not provs:
+            raise SupplierError("Printify: is product ka koi print provider nahi.")
+        prov = next((p for p in provs if str(p.get("id")) == self.provider_id), provs[0])
+        vd = _call("GET", self.BASE + f"/catalog/blueprints/{bp['id']}/print_providers/{prov['id']}/variants.json", self.h, what="Printify variants")
+        vs = vd.get("variants") if isinstance(vd, dict) else vd
+        pick = PP.pick_variants(vs or [], spec, color_of=lambda v: str((v.get("options") or {}).get("color") or ""))
+        if not pick:
+            raise SupplierError("Printify: is provider ke paas variants nahi mile.")
+        ph = pick[0].get("placeholders") or [{}]
+        pos = "front" if any(x.get("position") == "front" for x in ph) else (ph[0].get("position") or "front")
+        up = _call("POST", self.BASE + "/uploads/images.json", self.h, {"file_name": f"{title[:40]}.png", "contents": base64.b64encode(png).decode()}, what="Printify upload")
+        if not up.get("id"):
+            raise SupplierError("Printify ne design upload ka id nahi diya.")
+        ids = [v["id"] for v in pick]
+        body = {"title": title, "description": description, "blueprint_id": bp["id"], "print_provider_id": prov["id"],
+                "variants": [{"id": i, "price": int(fixed_price * 100), "is_enabled": True} for i in ids],
+                "print_areas": [{"variant_ids": ids, "placeholders": [{"position": pos, "images": [{"id": up["id"], "x": 0.5, "y": 0.5, "scale": 1, "angle": 0}]}]}]}
+        r = _call("POST", self.BASE + f"/shops/{self._shop()}/products.json", self.h, body, what="Printify create product")
+        if not r.get("id"):
+            raise SupplierError("Printify ne product ka id nahi diya.")
+        return str(r["id"])
 
     def create_order(self, req: SupplierOrderRequest) -> SupplierOrderResult:
         first, last = _split_name(req.customer_name)

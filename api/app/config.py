@@ -46,6 +46,9 @@ class Config:
 
     enable_dev_tools: bool = field(default_factory=lambda: _b("ENABLE_DEV_TOOLS", False))
     # Default for the DB setting on first boot only. After that, the dashboard toggle is the truth.
+    # v19: "affiliate" (default: partner links + network earnings) or "dropship" (the older sell-and-ship flow). First boot only; Settings changes it after that.
+    business_mode: str = field(default_factory=lambda: "dropship" if os.getenv("BUSINESS_MODE", "affiliate").strip().lower() == "dropship" else "affiliate")
+    biz_on: str = field(default_factory=lambda: os.getenv("BIZ_ON", ""))  # v20: comma list of businesses switched on at first boot (affiliate,pod,dropship)
     dry_run_default: bool = field(default_factory=lambda: _b("DRY_RUN", True))
 
     @property

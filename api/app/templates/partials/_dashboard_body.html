@@ -1,3 +1,5 @@
+<nav class="flex flex-wrap items-center gap-2 mb-5 text-sm" aria-label="Businesses"><span class="muted">Businesses:</span>{% for b in d.biz %}<a class="chip chip-{{ 'ok' if b.on else 'warn' }}" href="/business">{{ b.label }}: {{ 'ON' if b.on else ('jaldi' if not b.built else 'OFF') }}</a>{% endfor %}<a class="underline" href="/business">switchboard</a></nav>
+{% if d.mode == "affiliate" %}{% include "partials/_dashboard_aff.html" %}{% else %}
 {% from "partials/_macros.html" import chip %}
 {% set need = d.counts.get('pending_approval',0) + d.counts.get('failed_manual',0) %}
 {% set todo = d.checklist|rejectattr("done")|list %}
@@ -105,3 +107,4 @@
     </tbody></table></div>
   {% else %}<p class="panel-b muted">No orders yet. When a customer pays in your store, it appears here within seconds.</p>{% endif %}
 </section>
+{% endif %}

@@ -19,12 +19,15 @@ from . import sync as Y
 from .agents import track
 
 JOB_AGENT = {"process_pending": "router", "intake_sweep": "sweeper", "tracking_sync": "tracking",
-             "stock_price_sync": "stock", "reconcile": "reconciler", "strategy_run": "strategist", "maintenance": "reporter", "price_watch": "scout", "heartbeat": "reporter", "playbook_run": "playbook", "ai_review": "advisor", "shop_watch": "shop", "catalog_run": "catalog", "affiliate_run": "affiliate"}
+             "stock_price_sync": "stock", "reconcile": "reconciler", "strategy_run": "strategist", "maintenance": "reporter", "price_watch": "scout", "heartbeat": "reporter", "playbook_run": "playbook", "ai_review": "advisor", "shop_watch": "shop", "catalog_run": "catalog", "affiliate_run": "affiliate", "earnings_run": "affiliate", "pod_run": "pod"}
 
 
 def run_job(db: Session, rt, job: str, trigger: str = "scheduler") -> dict:
     agent = JOB_AGENT[job]
-    quiet = job in {"process_pending", "intake_sweep", "tracking_sync", "maintenance", "heartbeat", "ai_review", "shop_watch", "catalog_run", "affiliate_run"}  # run often; only show runs that did something
+    from . import mode as MODE
+    if not MODE.job_allowed(db, job):  # that business is switched off (Business page): its agents stay asleep
+        return {"skipped": "affiliate mode" if job in MODE.DROPSHIP_JOBS else "business off", "paused": False}
+    quiet = job in {"process_pending", "intake_sweep", "tracking_sync", "maintenance", "heartbeat", "ai_review", "shop_watch", "catalog_run", "affiliate_run", "earnings_run", "pod_run"}  # run often; only show runs that did something
     with track(db, agent, trigger, quiet_if_idle=quiet) as run:
         if job == "process_pending":
             res = O.process_pending(db, rt)
@@ -87,6 +90,21 @@ def run_job(db: Session, rt, job: str, trigger: str = "scheduler") -> dict:
             else:
                 run.done(int(res["imported"]) + int(res["repriced"]) + int(res["hidden"]), f"{res['imported']} naye product, {res['repriced']} ke prices badle, {res['hidden']} feed se hat gaye"
                          + (f". {res['errors']} program mein dikkat (Diagnostics/Agents dekho)" if res["errors"] else ""))
+        elif job == "pod_run":
+            from . import pod_agent
+            res = pod_agent.run(db, rt, rt.cfg)
+            if res.get("paused") or res.get("none"):
+                run.done(0, "Paused" if res.get("paused") else "Koi POD supplier nahi (Programs page se Printful/Printify jodo)")
+            else:
+                run.done(int(res["designs"]), f"{res['designs']} design, {res['products']} product bane" + (f", {res['errors']} mein dikkat (POD page dekho)" if res["errors"] else "") + (f". {res['skipped']}" if res["skipped"] else ""))
+        elif job == "earnings_run":
+            from . import earnings as EA
+            res = EA.run(db, rt)
+            if res.get("paused") or res.get("none"):
+                run.done(0, "Paused" if res.get("paused") else "Koi network API credentials nahi (Programs page par Awin/impact/CJ ke token daalo)")
+            else:
+                run.done(int(res["new"]) + int(res["changed"]), f"{res['networks']} network se earnings padhi: {res['new']} nayi, {res['changed']} ka status badla"
+                         + (f". {res['errors']} mein dikkat (Agents page dekho)" if res["errors"] else ""))
         elif job == "shop_watch":
             from . import shop as SH, supplies
             res = SH.watch(db, rt)

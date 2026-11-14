@@ -6,6 +6,9 @@ import os
 
 import pytest
 
+# the older tests cover the dropship flow; v19 tests switch to affiliate mode explicitly
+os.environ.setdefault("BUSINESS_MODE", "dropship")
+
 from app.adapters.base import NormalizedItem, NormalizedOrder
 from app.adapters.mock_store import MockStore
 from app.adapters.mock_supplier import MockSupplier

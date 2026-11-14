@@ -24,7 +24,7 @@ def _job(name: str):
 
 for _path, _name in (("process-pending", "process_pending"), ("intake-sweep", "intake_sweep"), ("tracking-sync", "tracking_sync"),
                      ("stock-price-sync", "stock_price_sync"), ("reconcile", "reconcile"), ("strategy-run", "strategy_run"), ("maintenance", "maintenance"),
-                     ("price-watch", "price_watch"), ("playbook", "playbook_run"), ("ai-review", "ai_review"), ("heartbeat", "heartbeat"), ("catalog", "catalog_run"), ("affiliate", "affiliate_run")):
+                     ("price-watch", "price_watch"), ("playbook", "playbook_run"), ("ai-review", "ai_review"), ("heartbeat", "heartbeat"), ("catalog", "catalog_run"), ("affiliate", "affiliate_run"), ("earnings", "earnings_run"), ("pod", "pod_run")):
     router.add_api_route(f"/jobs/{_path}", _job(_name), methods=["POST"], name=f"job_{_name}")
 
 

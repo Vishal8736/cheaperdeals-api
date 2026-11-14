@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cheaperdeal</title><meta name="description" content="Everyday deals, tracked shipping, secure checkout.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tailwind.css"></head>
+<body class="bg-background font-body-md text-on-surface antialiased">
+<header class="sticky top-0 z-40 shadow-[0_1px_8px_rgba(0,0,0,0.06)] bg-surface-container-lowest">
+  <div id="announce" hidden class="bg-gradient-to-r from-primary-container via-inverse-surface to-secondary text-on-primary text-center font-label-sm text-label-sm py-1.5 px-margin"></div>
+  <div class="max-w-[1440px] mx-auto px-4 md:px-margin h-[68px] flex items-center gap-space-lg">
+    <a href="/" class="flex flex-col shrink-0"><span class="font-headline-lg text-headline-lg tracking-tight leading-none"><span id="n1">Cheaper</span><span id="n2" class="text-secondary">deal</span></span><span id="tag" class="hidden sm:block font-badge-micro text-badge-micro tracking-widest uppercase text-on-surface-variant"></span></a>
+    <form id="searchf" class="flex-1 max-w-2xl hidden md:flex items-center h-11 bg-surface-container-low rounded-lg px-space-sm gap-space-xs">
+      <span class="material-symbols-outlined text-outline">search</span><input id="q" type="search" placeholder="Search products" aria-label="Search products" class="w-full bg-transparent focus:outline-none font-body-md text-body-md"></form>
+    <div class="ml-auto flex items-center gap-space-sm">
+      <select id="cur" hidden aria-label="Currency" class="h-9 rounded-lg bg-surface-container-low px-2 font-label-md text-label-md"></select>
+      <button data-help class="hidden md:flex items-center gap-1 px-space-sm py-1.5 rounded-lg hover:bg-surface-container-low font-label-md text-label-md"><span class="material-symbols-outlined">support_agent</span>Help</button>
+      <button id="trackb" class="hidden sm:flex items-center gap-1 px-space-sm py-1.5 rounded-lg hover:bg-surface-container-low font-label-md text-label-md"><span class="material-symbols-outlined">local_shipping</span>Track order</button>
+      <button id="cartb" class="flex items-center gap-space-sm bg-secondary-fixed/30 hover:bg-secondary-fixed/50 px-space-md py-1.5 rounded-lg" aria-label="Open cart">
+        <span class="relative material-symbols-outlined text-xl text-secondary">shopping_bag<b id="cnt" class="absolute -top-2 -right-2 bg-secondary text-white rounded-full w-4 h-4 flex items-center justify-center font-badge-micro text-badge-micro">0</b></span>
+        <span class="hidden sm:flex flex-col text-left"><span class="font-badge-micro text-badge-micro text-on-surface-variant uppercase">Subtotal</span><span id="sub" class="font-label-md text-label-md font-bold">0</span></span></button>
+    </div>
+  </div>
+  <div class="md:hidden px-4 pb-2"><form id="searchm" class="flex items-center h-10 bg-surface-container-low rounded-lg px-space-sm gap-space-xs"><span class="material-symbols-outlined text-outline">search</span><input id="qm" type="search" placeholder="Search products" aria-label="Search products" class="w-full bg-transparent focus:outline-none"></form></div>
+</header>
+
+<main>
+<section class="max-w-[1440px] mx-auto px-4 md:px-margin py-space-xl">
+  <div class="grid grid-cols-12 gap-gutter items-stretch">
+    <div class="col-span-12 lg:col-span-7 bg-primary-container text-on-primary rounded-xl p-6 md:p-space-xl relative overflow-hidden flex flex-col justify-between shadow-xl min-h-[380px]">
+      <div class="absolute -right-24 -top-24 w-96 h-96 rounded-full bg-secondary/20 blur-3xl pointer-events-none"></div>
+      <div class="relative"><p class="font-badge-micro text-badge-micro uppercase tracking-widest text-secondary-fixed-dim mb-space-xs">Everyday deals, shipped to you</p>
+        <h1 id="h1" class="font-display-xl text-display-xl tracking-tight text-white mb-space-md" style="font-size:clamp(34px,6vw,48px);line-height:1.1">Smart deals. Real savings.</h1>
+        <p class="font-body-lg text-body-lg text-inverse-primary max-w-xl">Fair prices, tracked shipping and a secure checkout. Every order gets a tracking link you can check any time.</p></div>
+      <div class="relative flex flex-wrap gap-space-md pt-space-lg"><a href="#shop" class="h-12 px-space-xl bg-secondary hover:bg-on-secondary-container text-white font-label-md text-label-md rounded-lg flex items-center gap-space-xs shadow-md">Shop now<span class="material-symbols-outlined text-lg">arrow_forward</span></a></div>
+    </div>
+    <div id="spot" class="col-span-12 lg:col-span-5 flex flex-col gap-space-sm"></div>
+  </div>
+</section>
+<section class="bg-surface-container-low py-space-md"><div class="max-w-[1440px] mx-auto px-4 md:px-margin grid grid-cols-2 lg:grid-cols-4 gap-gutter">
+  <div class="flex items-center gap-space-sm p-space-sm rounded-lg bg-white shadow-sm"><span class="material-symbols-outlined text-secondary">lock</span><div><div class="font-label-md text-label-md font-bold">Secure checkout</div><div class="font-body-sm text-body-sm text-on-surface-variant">No card data on our server</div></div></div>
+  <div class="flex items-center gap-space-sm p-space-sm rounded-lg bg-white shadow-sm"><span class="material-symbols-outlined text-secondary">local_shipping</span><div><div class="font-label-md text-label-md font-bold">Tracked shipping</div><div class="font-body-sm text-body-sm text-on-surface-variant" id="delivery">Status page for every order</div></div></div>
+  <div class="flex items-center gap-space-sm p-space-sm rounded-lg bg-white shadow-sm"><span class="material-symbols-outlined text-secondary">payments</span><div><div class="font-label-md text-label-md font-bold" id="shipinfo">Fair shipping</div><div class="font-body-sm text-body-sm text-on-surface-variant">Shown before you pay</div></div></div>
+  <div class="flex items-center gap-space-sm p-space-sm rounded-lg bg-white shadow-sm"><span class="material-symbols-outlined text-secondary">support_agent</span><div><div class="font-label-md text-label-md font-bold">Human support</div><div class="font-body-sm text-body-sm text-on-surface-variant" id="supinfo">Email us any time</div></div></div></div></section>
+
+<section id="shop" class="max-w-[1440px] mx-auto px-4 md:px-margin pt-space-xl">
+  <div class="flex flex-wrap items-end justify-between gap-space-md mb-space-lg"><h2 class="font-headline-lg text-headline-lg">All products</h2><div id="cats" class="flex flex-wrap gap-space-xs"></div></div>
+  <div id="grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-gutter"></div>
+  <p id="empty" hidden class="text-center text-on-surface-variant py-16">Nothing here yet. Check back soon.</p>
+</section>
+</main>
+
+<footer class="bg-white mt-margin shadow-[0_-1px_8px_rgba(0,0,0,0.04)]"><div class="max-w-[1440px] mx-auto px-4 md:px-margin py-space-xl">
+  <div class="bg-surface-container-low rounded-xl p-space-lg mb-space-xl flex flex-col lg:flex-row items-center justify-between gap-space-lg"><div><span class="font-badge-micro text-badge-micro uppercase tracking-wider text-secondary font-bold">Deal alerts</span><h4 class="font-headline-sm text-headline-sm mt-1">New deals in your inbox</h4><p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Only new arrivals and real price drops. Unsubscribe by replying to any email.</p></div>
+    <form id="subf" class="flex w-full lg:w-auto gap-space-xs"><input name="email" type="email" required placeholder="Your email" aria-label="Email" class="w-full lg:w-72 h-10 px-space-md rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"><button class="h-10 px-space-lg bg-secondary hover:bg-on-secondary-container text-white rounded-lg font-label-md text-label-md">Subscribe</button></form></div>
+  <div class="flex flex-col md:flex-row justify-between gap-space-md text-on-surface-variant font-body-sm text-body-sm"><span id="copy"></span><span class="flex gap-4"><button data-help class="underline">Help / report a problem</button><a class="underline" href="/privacy.html">Privacy</a><a class="underline" href="/terms.html">Terms</a><a class="underline" href="/refund.html">Refunds</a><a class="underline" href="/shipping.html">Shipping</a></span><span>Payments are handled by our payment partner. We never see or store card details. Some products are partner links: we may earn a commission if you buy there, at no extra cost to you.</span></div></div></footer>
+
+<div id="ov" hidden class="fixed inset-0 z-50 bg-black/50"></div>
+<aside id="cart" hidden class="fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white shadow-2xl flex flex-col" role="dialog" aria-label="Cart">
+  <div class="p-space-lg flex items-center justify-between border-b border-outline-variant"><h3 class="font-headline-md text-headline-md">Your cart</h3><button data-close class="material-symbols-outlined" aria-label="Close">close</button></div>
+  <div id="lines" class="flex-1 overflow-y-auto p-space-lg flex flex-col gap-space-md"></div>
+  <div class="p-space-lg border-t border-outline-variant"><div class="flex justify-between font-label-md text-label-md mb-1"><span>Subtotal</span><span id="csub"></span></div><div class="flex justify-between font-body-sm text-body-sm text-on-surface-variant mb-space-md"><span>Shipping</span><span id="cship"></span></div>
+    <button id="gocheck" class="w-full h-12 bg-secondary hover:bg-on-secondary-container text-white rounded-lg font-label-md text-label-md">Checkout</button></div></aside>
+<div id="modal" hidden class="fixed inset-0 z-[60] flex items-start sm:items-center justify-center p-3 overflow-y-auto"><div class="bg-white rounded-xl shadow-2xl w-full max-w-lg my-auto" role="dialog" aria-modal="true"><div id="mbody" class="p-space-lg"></div></div></div>
+<div id="toast" hidden class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] bg-inverse-surface text-white px-space-lg py-space-sm rounded-lg font-label-md text-label-md shadow-lg"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" defer</script>
+<script src="/config.js"></script><script src="/app.js"></script>
+</body></html>

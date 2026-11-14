@@ -20,6 +20,8 @@ from sqlalchemy.orm import Session
 from ..adapters.base import NormalizedItem, NormalizedOrder
 from ..models import Order, Product, ShopOrder, Subscriber
 from . import fx, payments
+from . import business as BZ
+from . import mode as MODE
 from .shopcfg import DEFAULTS, SYMBOLS, configure, get, money, read_secret, save_secret, symbol  # noqa: F401  (re-exported for the routers)
 
 MAX_LINES, MAX_QTY = 20, 20
@@ -52,7 +54,7 @@ def pick_currency(db: Session, wanted: str = "") -> str:
     return d if d in ok else ok[0]
 
 
-def public_config(db: Session) -> dict:
+def public_config(db: Session, biz: str = "") -> dict:
     cur = pick_currency(db)
     rates = {c: {"rate": str(fx.rate(db, c)), "symbol": symbol(c)} for c in allowed_currencies(db)}
     return {"name": get(db, "shop_name"), "tagline": get(db, "shop_tagline"), "announce": get(db, "shop_announce"), "currency": cur, "rates": rates,
@@ -60,7 +62,9 @@ def public_config(db: Session) -> dict:
             "methods": payments.options(db), "razorpay_key": get(db, "razorpay_key_id") if "razorpay" in payments.enabled(db) else "",
             "countries": [c.strip().upper() for c in get(db, "shop_countries").split(",") if c.strip()],
             "support_email": get(db, "shop_support_email"), "delivery_days": get(db, "shop_delivery_days"), "address": get(db, "shop_address"),
-            "open": get(db, "shop_on").lower() not in ("false", "0", "no", "off")}
+            "open": get(db, "shop_on").lower() not in ("false", "0", "no", "off"),
+            "mode": "affiliate" if (biz == "affiliate" or (not biz and MODE.is_affiliate(db)) or (biz in ("pod", "dropship") and not MODE.is_on(db, biz))) else "dropship",
+            "biz": biz}  # affiliate: no cart or checkout; every product is a "Buy at <merchant>" link
 
 
 def sellable(db: Session):
@@ -76,20 +80,24 @@ def _item(p: Product) -> dict:
     return d
 
 
-def products(db: Session) -> list[dict]:
-    hit = _cache.get("products")
+def products(db: Session, biz: str = "") -> list[dict]:
+    biz = biz if biz in ("affiliate", "pod", "dropship") else ""
+    hit = _cache.get("products:" + biz)
     if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
         return hit[1]  # type: ignore[return-value]
     from . import support
     rt_ = support.ratings(db)
-    rows = [{**_item(p), "rating": rt_.get(p.id, (0, 0))[0], "reviews": rt_.get(p.id, (0, 0))[1]} for p in sellable(db).order_by(Product.listed_at.desc(), Product.id.desc()).limit(300).all()]
-    _cache["products"] = (time.monotonic(), rows)
+    q = BZ.filter_products(db, sellable(db), biz)  # only products of businesses that are ON (a dedicated website: only its own business)
+    rows = [{**_item(p), "rating": rt_.get(p.id, (0, 0))[0], "reviews": rt_.get(p.id, (0, 0))[1]} for p in q.order_by(Product.listed_at.desc(), Product.id.desc()).limit(300).all()]
+    _cache["products:" + biz] = (time.monotonic(), rows)
     return rows
 
 
 # ---- pricing an order ----------------------------------------------------------------------------
 def quote(db: Session, lines, currency: str = "") -> dict:
     """lines = [{id, qty}] from the browser. Prices are taken from the database (USD) and converted. Raises ValueError (customer-safe text)."""
+    if MODE.is_affiliate(db):
+        raise ValueError("Is dukaan mein checkout nahi hai. Product ke 'Buy at ...' button se seedha merchant ki site par jao.")
     if not isinstance(lines, list) or not lines:
         raise ValueError("Cart khali hai.")
     if len(lines) > MAX_LINES:

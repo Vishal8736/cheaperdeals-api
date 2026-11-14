@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Print-on-demand - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5">
+  <h1 class="display text-3xl font-extrabold">Print-on-demand</h1>
+  <p class="muted mt-1 max-w-[72ch]">Agent slogan wale designs banata hai, Printful/Printify ki API se t-shirt, mug, phone case jaise products banwata hai, aur margin theek ho to store par lagata hai. Print aur shipping supplier karta hai.</p>
+  <div class="help mt-2" style="display:block">Sach: designs <b>text/typography</b> hote hain (bold lettering, badge, stripes), code se bane, AI photo nahi. Brand, character aur celebrity wale shabd khud hat jaate hain. Supplier ki API ke request/response yaad se likhe hain aur kisi asli account par chale nahi: koi product type na mile to yahan error dikhega.</div>
+</div>
+<div class="grid sm:grid-cols-4 gap-3 mb-5">
+  <div class="panel panel-b"><div class="muted text-sm">Designs</div><div class="display text-2xl font-extrabold">{{ n.designs }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Supplier par bane</div><div class="display text-2xl font-extrabold">{{ n.created }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Store par live</div><div class="display text-2xl font-extrabold">{{ n.listed }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Dikkat wale</div><div class="display text-2xl font-extrabold">{{ n.errors }}</div></div>
+</div>
+{% if not conns %}<div class="help mb-5" style="display:block">Koi POD supplier juda nahi. <a class="underline" href="/programs">Programs</a> page par Printful ya Printify jodo (designs ban sakte hain, par supplier par tabhi jaayenge).</div>{% endif %}
+
+<form method="post" action="/pod/make" class="panel panel-b grid gap-3 mb-5">{{ csrf() }}
+  <b>Naya design banao</b>
+  <div class="grid sm:grid-cols-[1fr_2fr_auto] gap-3 items-end">
+    <div><label class="f" for="nn">Niche</label><input class="in" id="nn" name="niche" list="nl" value="{{ cfg.niches[0] }}"><datalist id="nl">{% for x in niches %}<option value="{{ x }}">{% endfor %}</datalist></div>
+    <div><label class="f" for="tx">Apna text (khali = agent chunega)</label><input class="in" id="tx" name="text" maxlength="48" placeholder="Good Vibes Only"></div>
+    <div class="flex gap-2"><button class="btn btn-ghost btn-sm" name="push" value="0">Sirf design</button><button class="btn btn-accent btn-sm" name="push" value="1">Design + supplier par bhejo</button></div>
+  </div>
+</form>
+
+<form method="post" action="/pod/settings" class="panel panel-b grid gap-3 mb-5">{{ csrf() }}
+  <b>POD agent (khud designs banata hai)</b>
+  <div class="grid sm:grid-cols-[2fr_1fr_1fr_1fr] gap-3">
+    <div><label class="f" for="ns">Niches (comma se alag)</label><input class="in" id="ns" name="niches" value="{{ cfg.niches|join(', ') }}"></div>
+    <div><label class="f" for="pd">Roz zyada se zyada designs</label><input class="in num" id="pd" name="pod_daily" value="{{ cfg.daily }}"></div>
+    <div><label class="f" for="pb">Ek round mein</label><input class="in num" id="pb" name="pod_batch" value="{{ cfg.batch }}"></div>
+    <div><label class="f" for="pm">Printful markup (x)</label><input class="in num" id="pm" name="pod_markup" value="{{ cfg.markup }}"></div>
+  </div>
+  <div><span class="f">Kin products par lagana hai</span>
+    <div class="grid sm:grid-cols-3 gap-2 mt-1">{% for k, t in types.items() %}<div class="flex items-center gap-2 text-sm"><label class="flex items-center gap-2"><input type="checkbox" name="types" value="{{ k }}" {{ 'checked' if k in cfg.types }}> {{ t.label }}</label>
+      <span class="muted">$</span><input class="in num" style="width:5rem" name="price_{{ k }}" value="{{ prices[k] }}" aria-label="{{ t.label }} price (Printify)"></div>{% endfor %}</div>
+    <p class="help" style="display:block">Price wale box Printify ke liye hain (Printful par cost x markup lagta hai). Margin guard ab bhi chalta hai: kam margin wala product store par nahi lagta.</p></div>
+  <div><button class="btn btn-accent btn-sm">Save karo</button></div>
+</form>
+
+<div class="panel mb-5"><div class="panel-h"><h2 class="display text-lg font-bold">Designs</h2>{% if n.errors %}<form method="post" action="/pod/retry">{{ csrf() }}<button class="btn btn-ghost btn-sm">Galti wale dobara try karo</button></form>{% endif %}</div>
+  {% if designs %}<div class="panel-b grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for d in designs %}<div class="border rounded p-3 grid gap-2" style="border-color:#D8DCD5">
+    <div class="flex justify-center rounded" style="background:repeating-conic-gradient(#e9ece6 0 25%, #fff 0 50%) 0 0/20px 20px"><img src="/pod/design/{{ d.id }}.png" alt="{{ d.text }}" loading="lazy" style="height:220px;width:auto"></div>
+    <div class="text-sm"><b>{{ d.text }}</b> <span class="muted">· {{ d.niche }} · {{ d.style }}</span></div>
+    <ul class="text-xs grid gap-0.5">{% for it in items.get(d.id, []) %}<li><span class="chip chip-{{ 'ok' if it.status == 'listed' else ('bad' if it.status == 'error' else 'warn') }}">{{ it.status }}</span> {{ types[it.ptype].label }}{% if it.error %} <span class="muted">{{ it.error }}</span>{% endif %}</li>{% endfor %}</ul>
+    <form method="post" action="/pod/publish/{{ d.id }}">{{ csrf() }}<button class="btn btn-ghost btn-sm">Supplier par bhejo</button></form></div>{% endfor %}
+  </div>{% else %}<p class="panel-b muted">Abhi koi design nahi. Upar se banao, ya agent khud banayega (POD business ON ho aur supplier jura ho).</p>{% endif %}</div>
+{% endblock %}

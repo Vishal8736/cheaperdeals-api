@@ -1,6 +1,8 @@
 (() => {
   "use strict";
   const API = (window.SHOP_API || "/api").replace(/\/$/, "");
+  const BIZ = encodeURIComponent(window.SHOP_BIZ || "");   // a dedicated website shows one business only (affiliate | pod | dropship); empty = every business that is ON
+  const Q = BIZ ? "?biz=" + BIZ : "";
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   let cfg = { rates: { USD: { rate: "1", symbol: "$" } }, currency: "USD", ship_flat_usd: "0", free_over_usd: "0", countries: ["US"], methods: [{ id: "manual", label: "Pay later" }], open: true, name: "Cheaperdeal" };
@@ -62,7 +64,10 @@
     $("#cur").innerHTML = Object.keys(cfg.rates).map((c) => `<option ${c === cur ? "selected" : ""}>${esc(c)}</option>`).join("");
     $("#cur").hidden = Object.keys(cfg.rates).length < 2;
     $("#copy").textContent = `© ${new Date().getFullYear()} ${n}`;
-    if (!cfg.open) { const a2 = $("#announce"); a2.hidden = false; a2.textContent = "The store is closed for now. You can browse, but ordering is paused."; }
+    const aff = cfg.mode === "affiliate";   // affiliate business: no cart, no checkout, no order tracking - only "Buy at <merchant>" links
+    $("#cartb").style.display = aff ? "none" : ""; $("#trackb").style.display = aff ? "none" : "";
+    if (aff) { $("#shipinfo").textContent = "Best deals from trusted stores"; $("#delivery").textContent = "You buy on the merchant's own site"; }
+    else if (!cfg.open) { const a2 = $("#announce"); a2.hidden = false; a2.textContent = "The store is closed for now. You can browse, but ordering is paused."; }
   }
   function card(p) {
     return `<article class="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col">
@@ -104,7 +109,7 @@
 
   const ov = $("#ov"), cartEl = $("#cart"), modal = $("#modal");
   function closeAll() { ov.hidden = cartEl.hidden = modal.hidden = true; document.body.style.overflow = ""; }
-  function openCart() { warm(); renderCart(); ov.hidden = cartEl.hidden = false; document.body.style.overflow = "hidden"; }
+  function openCart() { if (cfg.mode === "affiliate") return; warm(); renderCart(); ov.hidden = cartEl.hidden = false; document.body.style.overflow = "hidden"; }
   function openModal(html) { cartEl.hidden = true; $("#mbody").innerHTML = html; ov.hidden = modal.hidden = false; document.body.style.overflow = "hidden"; modal.scrollTop = 0; }
   const closeBtn = '<button data-close class="material-symbols-outlined float-right" aria-label="Close">close</button>';
   const field = (n, l, extra = "") => `<label class="block"><span class="font-label-md text-label-md">${l}</span><input name="${n}" required ${extra} class="mt-1 w-full h-10 px-3 rounded-lg bg-surface-container-low focus:outline-none focus:ring-2 focus:ring-secondary"></label>`;
@@ -260,11 +265,11 @@
 
   async function start() {
     $("#grid").innerHTML = Array.from({ length: 5 }, () => '<div class="skeleton rounded-xl aspect-[3/4]"></div>').join("");
-    try { cfg = { ...cfg, ...(await api("/shop/config", {}, 20000)) }; } catch {}
+    try { cfg = { ...cfg, ...(await api("/shop/config" + Q, {}, 20000)) }; } catch {}
     let saved = ""; try { saved = localStorage.getItem("cur") || ""; } catch {}
     cur = cfg.rates[saved] ? saved : cfg.currency;
     renderHead();
-    try { products = (await api("/shop/products", {}, 20000)).products; } catch { $("#grid").innerHTML = ""; $("#empty").hidden = false; $("#empty").textContent = "Could not load products. Please refresh."; }
+    try { products = (await api("/shop/products" + Q, {}, 20000)).products; } catch { $("#grid").innerHTML = ""; $("#empty").hidden = false; $("#empty").textContent = "Could not load products. Please refresh."; }
     renderShop(); renderCart();
     const m = location.hash.match(/^#track=(.+)$/); if (m) track(decodeURIComponent(m[1]));
     const tk = location.hash.match(/^#ticket=(.+)$/); if (tk) ticket(decodeURIComponent(tk[1]));

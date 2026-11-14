@@ -7,6 +7,7 @@ from ..models import Connection, FxRate, MarketPrice, Product
 from . import assistant as AI
 from . import finance as FIN
 from . import launch, mailer
+from . import mode as MODE
 from . import settings_service as S
 
 
@@ -58,4 +59,32 @@ def steps(db: Session, cfg) -> list[dict]:
         dict(key="live", title="Live jao (rehearsal band)", required=True, done=not S.get_bool(db, "dry_run"), href="/settings#go-live", link="Settings > Go live",
              what="Rehearsal band karne par asli orders supplier ko jaate hain.", where="Pehle ek chhota test order rehearsal mein chalao, phir approval threshold chhota rakh kar live jao. Guide page ka 'Live jaane ka checklist' dekho."),
     ]
+    if MODE.is_affiliate(db):
+        S_ = _affiliate_steps(db, S_)
     return S_
+
+
+def _affiliate_steps(db: Session, all_steps: list[dict]) -> list[dict]:
+    """Affiliate business: no supplier, shipping or live-orders steps. Programs, product feed and the networks' earnings API come first."""
+    keep = {s["key"]: s for s in all_steps if s["key"] in ("login", "hosting", "fx", "notify", "ai", "heartbeat")}
+    progs = db.query(Connection).filter(Connection.kind == "affiliate", Connection.enabled.is_(True)).all()
+    earn = [c for c in progs if c.type in ("aff_awin", "aff_impact", "aff_cj_affiliate") and c.secrets_enc]
+    aff_products = db.query(Product).filter(Product.kind == "affiliate").count()
+    new = [
+        dict(key="programs", title="Affiliate program jodo", required=True, done=any(c.last_status == "ok" for c in progs), href="/programs", link="Programs",
+             what="Kam se kam ek program (Awin, CJ Affiliate, impact, Amazon, eBay, Rakuten ...) jahan tumhara affiliate account approve ho chuka ho.",
+             where="Programs page par apna program chuno, uska signup link wahin hai. Account approve hone ke baad feed link ya API keys daalo aur 'Test' dabao."
+                   + (" Abhi program jura hai par test pass nahi hua: Connect page par error dekho." if progs and not any(c.last_status == "ok" for c in progs) else "")),
+        dict(key="aff_products", title="Partner products", required=True, done=aff_products > 0, href="/programs", link="Programs",
+             what="Website par dikhane ke liye partner products.", where="Programs page par 'Abhi import karo' dabao, ya Affiliate agent har ghante khud laata hai (keywords wahin set hote hain)."),
+        dict(key="earn_api", title="Kamai ki API (Awin / impact / CJ)", required=False, done=bool(earn), href="/programs", link="Programs",
+             what="Network ka API token, taaki asli commission dashboard par dikhe (hum andaza nahi lagate).",
+             where="Awin: Account > API Credentials. impact: Settings > API. CJ: developers.cj.com par Personal Access Token. Token program ke form mein 'earnings ke liye' wale box mein daalo."),
+    ]
+    order = ["login", "programs", "aff_products", "earn_api", "hosting", "fx", "notify", "ai", "heartbeat"]
+    pool = {**keep, **{n["key"]: n for n in new}}
+    out = [pool[k] for k in order if k in pool]
+    out.append(dict(key="start", title="Start dabao (autonomous)", required=True, done=S.get_bool(db, "engine_started_once") and not S.get_bool(db, "paused"), href="/", link="Upar ka Start button",
+                    what="Upar strip mein Start dabao: dukaan online hoti hai, agents products laate hain aur kamai sync karte hain.",
+                    where="Koi supplier ya CJ key nahi chahiye. Dukaan par sirf 'Buy at ...' links hote hain."))
+    return out

@@ -36,6 +36,14 @@ def ensure_defaults(db: Session, cfg: Config) -> None:
     if "feed_token" not in existing:
         import secrets as _sec
         db.add(Setting(key="feed_token", value=_sec.token_urlsafe(24)))
+    if "business_mode" not in existing:
+        db.add(Setting(key="business_mode", value=getattr(cfg, "business_mode", "affiliate")))
+    on = {k.strip() for k in (getattr(cfg, "biz_on", "") or "").split(",") if k.strip()}  # BIZ_ON env: which businesses start switched on
+    if not on:
+        on = {"affiliate"} | ({"dropship", "pod"} if getattr(cfg, "business_mode", "affiliate") == "dropship" else set())
+    for k in ("affiliate", "pod", "dropship"):
+        if f"biz_{k}_on" not in existing:
+            db.add(Setting(key=f"biz_{k}_on", value="true" if k in on else "false"))
     if "dry_run" not in existing:
         db.add(Setting(key="dry_run", value="true" if cfg.dry_run_default else "false"))
     db.commit()

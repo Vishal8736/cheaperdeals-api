@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint,
+    Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text, UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -526,3 +526,64 @@ class DiagEvent(Base):
     fingerprint: Mapped[str] = mapped_column(String(16), default="", index=True)  # same problem => same fingerprint
     ref: Mapped[str] = mapped_column(String(12), default="", index=True)  # the "Error ID" shown to the person (also X-Request-ID)
     path: Mapped[str] = mapped_column(String(200), default="")
+
+
+class Click(Base):
+    """One visitor sent to a merchant through /shop/go (v19). Kept ~120 days; lets the dashboard show clicks today / this week and earnings per click."""
+    __tablename__ = "clicks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(Integer, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class Earning(Base):
+    """One commission the affiliate NETWORK reports (v19), pulled through its API. We never make these up: a row exists only if the network returned it.
+    amount_usd is None when the currency has no exchange rate yet."""
+    __tablename__ = "earnings"
+    __table_args__ = (UniqueConstraint("network", "tx_id", name="uq_earning_network_tx"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    network: Mapped[str] = mapped_column(String(32), index=True)  # aff_awin | aff_impact | aff_cj_affiliate
+    connection_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    tx_id: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)  # pending | approved | paid | declined
+    merchant: Mapped[str] = mapped_column(String(120), default="")
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("0"))  # commission, in `currency`
+    currency: Mapped[str] = mapped_column(String(8), default="USD")
+    amount_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 4), nullable=True)
+    sale_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 4), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    sub: Mapped[str] = mapped_column(String(80), default="")  # the sub-id we put on the click (p<product id>), when the network returns it
+    product_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class Design(Base):
+    """A print design made by the POD agent (v20): code-rendered typography/pattern art (not photos, not copied from anyone). The PNG lives in the DB so the
+    Render copy can serve it to Printful (which fetches designs from a public URL)."""
+    __tablename__ = "designs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    niche: Mapped[str] = mapped_column(String(80), default="", index=True)
+    text: Mapped[str] = mapped_column(String(160), default="")
+    style: Mapped[str] = mapped_column(String(24), default="stack")
+    palette: Mapped[str] = mapped_column(String(24), default="")
+    width: Mapped[int] = mapped_column(Integer, default=0)
+    height: Mapped[int] = mapped_column(Integer, default=0)
+    png: Mapped[bytes] = mapped_column(LargeBinary)
+    source: Mapped[str] = mapped_column(String(16), default="builtin")  # builtin slogan bank | ai
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class PodItem(Base):
+    """One design put on one product type at one POD supplier."""
+    __tablename__ = "pod_items"
+    __table_args__ = (UniqueConstraint("design_id", "connection_id", "ptype", name="uq_pod_item"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    design_id: Mapped[int] = mapped_column(Integer, index=True)
+    connection_id: Mapped[int] = mapped_column(Integer, index=True)
+    ptype: Mapped[str] = mapped_column(String(24))
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)  # pending | created | listed | error
+    provider_ref: Mapped[str] = mapped_column(String(80), default="")
+    title: Mapped[str] = mapped_column(String(200), default="")
+    error: Mapped[str] = mapped_column(String(400), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

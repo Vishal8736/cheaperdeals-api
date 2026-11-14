@@ -1,8 +1,9 @@
-CHEAPERDEALS v18.0 - kaise chalao (Windows)
+CHEAPERDEALS v20.0 - kaise chalao (Windows)
 1. Zip extract karo. run_local.bat double-click.
 2. http://localhost:8000 kholo, admin login.
 3. Menu > "API Keys + Ping":
-   a) CJ API key daalo (hamesha ke liye save).
+   a) (v19: CJ key ki zarurat nahi, affiliate mode.) Menu > Programs par apna affiliate program jodo (Awin/CJ Affiliate/impact/Amazon/eBay...).
+      Awin/impact/CJ ke form mein 'earnings ke liye' API token bhi daalo, tabhi asli kamai Earnings page par dikhegi.
    b) Vercel, Render, GitHub, Neon: har ek ka "login (CLI)" dabao, browser mein allow karo, phir "Status check".
       (CLI chahiye: Node.js, render, gh. Neon ke liye app npx se neonctl@7.0.8 chalati hai.)
       Render: workspace app khud set karti hai (ek ho to); purani kharab ~/.render/cli.yaml bhi khud theek karti hai.
@@ -15,6 +16,22 @@ LOGS / ERROR PAKADNA (naya):
 - Koi bhi dikkat: "Report download (.txt)" dabao aur wo file bhej do. Usme health check, Start ka log, problems aur aakhri 300 lines hain.
 - Page crash ho to screen par "Error ID" aata hai: Diagnostics > Error ID mein daalo.
 - File copy: logs/cheaperdeals.log (project folder mein).
+NAYA v20.0 (alag-alag business, ek switchboard):
+- Menu 'Business switchboard': affiliate, print-on-demand, dropship ka alag ON/OFF. Jo tick karo unhe ek saath Start/Stop; band business ke sirf apne agents sote hain. Ebook v21 mein.
+- Menu 'Print-on-demand': agent slogan wale designs banata hai (code se bani typography, AI photo nahi), Printful/Printify ki API se t-shirt, hoodie, mug, phone case, poster, tote, bottle, mouse pad, sticker banwata hai, margin theek ho to store par lagata hai. Print aur shipping supplier karta hai.
+  Pehle Programs page se Printful ya Printify jodo. Printful design ko public link se leta hai (Render par chalao); local mein Printify use karo.
+- Har business ki apni website: zip ke storefront-sites/ folder mein affiliate/, pod/, dropship/ (config.js mein SHOP_BIZ set hai). Har ek ko apne Vercel project par deploy karo, link Business page par likho. Start inhe abhi khud deploy nahi karta.
+- Naya package Pillow hai (designs ke liye): run_local.bat khud install kar deta hai.
+- Sach: Printful/Printify ke naye API calls yaad se likhe hain, asli account par chale nahi; kisi product type ka naam supplier ke catalog mein na mile to POD page par error dikhega. Browser agent (Obscura) aur ebook agle phase mein.
+
+NAYA v19.0 (poora project affiliate business):
+- Default mode ab AFFILIATE: cart/order/supplier/CJ key nahi. Dropship menu aur agents so gaye (Settings > Business mode se wapas chalu).
+- Menu 'Earnings (kamai)': Awin / impact.com / CJ Affiliate ki API se asli commission (pending/approved/paid), har ghante. Dashboard par clicks aaj/hafta, kamai 30 din, kamai per click. Hum andaza nahi lagate.
+- Click par product ka sub-id lagta hai (Awin clickref, impact subId1, CJ sid) taaki kamai product se judi dikhe.
+- Website par sirf 'Buy at ...' links; cart/checkout band.
+- Sach: Awin endpoint docs se; impact aur CJ ka request/response yaad se likha hai, kisi asli account par chala nahi. Render server ka apna database hai: wahan ke admin mein bhi program jodo.
+- Apni CJ Dropshipping key chat mein share ho chuki hai: CJ dashboard se naya key banao aur API Keys page par daalo (agar dropship mode chahiye).
+
 NAYA v18.0:
 - Menu "Affiliate + POD (30)": 30 connectors (affiliate networks, Amazon/eBay, Printful/Printify...), commission ke hisaab se rank. Affiliate products website par "Buy at ..." ke saath aate hain; hum clicks ginte hain, kamai network dashboard mein dikhti hai.
 - Start dabane par Render ka code aur Vercel ki website khud update hoti hai (purana ho to). GitHub login na ho to warning, Start phir bhi chalta hai.

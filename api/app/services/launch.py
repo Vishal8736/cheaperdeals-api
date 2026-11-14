@@ -251,8 +251,9 @@ def _check_version(db, url: str) -> None:
 
 def _create_backend(db, name: str, sf=None) -> str:
     _log(db, f"Render par '{name}' nahi mili. Nayi bana raha hun.", "warn")
+    from . import mode as MODE
     cj = C.read_secret(db, "host_env_cj_enc")
-    if not cj:
+    if not cj and not MODE.is_affiliate(db):  # affiliate business needs no CJ key at all
         raise Step("CJ API key pehle API Keys page par daalo (Render par bane server ko wahi chahiye).")
     # database: Neon (free), created through its CLI; the address is saved sealed so this happens once
     if not C.read_secret(db, "host_env_db_enc"):
@@ -278,8 +279,10 @@ def _create_backend(db, name: str, sf=None) -> str:
         db.commit()
         _log(db, f"Code yahan hai: {repo}", "ok")
     predicted = f"https://{name}.onrender.com"
-    env = {"CJ_API_KEY": cj, "DATABASE_URL": dbu, "ADMIN_PASSWORD": adm, "PUBLIC_URL": predicted, "KEEPALIVE_URL": predicted,
+    env = {"BUSINESS_MODE": MODE.current(db), "BIZ_ON": ",".join(k for k in MODE.KEYS if MODE.is_on(db, k)), "DATABASE_URL": dbu, "ADMIN_PASSWORD": adm, "PUBLIC_URL": predicted, "KEEPALIVE_URL": predicted,
            "DRY_RUN": "false" if S.get_bool(db, "host_live") else "true"}
+    if cj:
+        env["CJ_API_KEY"] = cj
     r = hostcli.render_create(db, name, repo, "main", env)
     db.commit()
     _log(db, f"Render service ban gayi: {r['url']}. Pehli build 3-5 minute leti hai.", "ok")
@@ -335,6 +338,11 @@ def _wake_remote(db, backend: str, site: str) -> None:
 def _watch_products(db, backend: str, key: str) -> None:
     """Start made the Render agents run at once (the Catalog agent imports from CJ and lists on the website). Look, for a few minutes, whether products
     really arrive and say so; never fails Start (the agent keeps trying every 30 minutes)."""
+    from . import mode as MODE
+    if MODE.is_affiliate(db):
+        _log(db, "Affiliate mode: Render par Affiliate agent har ghante products aur earnings laata hai. Render server ka apna database hai, isliye wahan bhi "
+                 "(uske admin ke Programs page par) apne program jodo aur 'Abhi import karo' dabao.", "info")
+        return
     _log(db, "Catalog agent CJ se products la raha hai, dekh raha hun aaye ya nahi (3 minute tak)...")
     last = None
     for i in range(18):
@@ -449,8 +457,15 @@ def preflight(db) -> list[dict]:
 
     def add(name, ok, detail, fix=""):
         items.append({"name": name, "ok": ok, "detail": detail, "fix": fix})
+    from . import mode as MODE
     cj = bool(C.read_secret(db, "host_env_cj_enc"))
-    add("CJ API key", cj, "save hai" if cj else "daali nahi gayi", "" if cj else "API Keys page par CJ key daalo.")
+    if MODE.is_affiliate(db):
+        add("CJ API key", None, "affiliate mode mein zaroori nahi" + (" (save hai)" if cj else ""))
+        from ..models import Connection
+        progs = db.query(Connection).filter(Connection.kind == "affiliate", Connection.enabled.is_(True)).count()
+        add("Affiliate program", progs > 0, f"{progs} jura hai" if progs else "koi nahi jura", "" if progs else "Programs page par koi program jodo (Awin, CJ Affiliate, impact, Amazon ...).")
+    else:
+        add("CJ API key", cj, "save hai" if cj else "daali nahi gayi", "" if cj else "API Keys page par CJ key daalo.")
     sts = {}
     for w in hostcli.PROVIDERS:
         st = hostcli.status(w)

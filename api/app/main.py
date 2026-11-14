@@ -204,7 +204,7 @@ def create_app(cfg: Config | None = None, runtime: Runtime | None = None) -> Fas
             return JSONResponse({"ok": False, "db": str(e)[:100]}, status_code=503)
         return {"ok": True, "version": VERSION}
 
-    from .routers import diagnostics as diag_ui, host, keys as keys_ui, platforms as platforms_ui, shop_api, support as support_ui, website, agents_ui, analytics, assistant, auth, email as email_ui, catalog, connect, feed, internal, ops, playbook, programs, strategy, ui, users, webhooks
+    from .routers import diagnostics as diag_ui, host, keys as keys_ui, platforms as platforms_ui, shop_api, support as support_ui, website, agents_ui, analytics, assistant, auth, email as email_ui, catalog, connect, feed, internal, ops, playbook, programs, earnings as earnings_ui, business as business_ui, pod as pod_ui, strategy, ui, users, webhooks
     app.include_router(auth.router)
     app.include_router(webhooks.router)
     app.include_router(internal.router)
@@ -213,6 +213,9 @@ def create_app(cfg: Config | None = None, runtime: Runtime | None = None) -> Fas
     app.include_router(ops.auth)
     app.include_router(ops.api)
     app.include_router(programs.router)
+    app.include_router(earnings_ui.router)
+    app.include_router(business_ui.router)
+    app.include_router(pod_ui.router)
     app.include_router(catalog.router)  # before ui: /products/list-on-store must win over /products/{pid}
     app.include_router(users.router)
     app.include_router(ui.router)

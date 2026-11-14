@@ -14,6 +14,8 @@ log = logging.getLogger("cheapedeal.scheduler")
 SCHEDULE = {
     "catalog_run": (1800, 20),
     "affiliate_run": (3600, 50),
+    "pod_run": (1800, 60),
+    "earnings_run": (3600, 80),
     "process_pending": (20, 3),
     "tracking_sync": (120, 25),
     "intake_sweep": (300, 15),
@@ -29,7 +31,7 @@ SCHEDULE = {
 }
 
 
-BACKGROUND = {"catalog_run", "affiliate_run"}
+BACKGROUND = {"catalog_run", "affiliate_run", "earnings_run", "pod_run"}
 
 
 class Scheduler(threading.Thread):

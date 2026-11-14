@@ -187,6 +187,15 @@ def health_checks(db: Session, cfg, scheduler_alive: bool | None) -> list[dict]:
 
 def checklist(db: Session) -> list[dict]:
     """Setup progress for the dashboard: each step is done or points to where to do it."""
+    from . import mode as MODE
+    if MODE.is_affiliate(db):
+        progs = db.query(Connection).filter(Connection.kind == "affiliate", Connection.enabled.is_(True)).all()
+        return [{"label": a, "done": b, "href": c} for a, b, c in [
+            ("Affiliate program jodo (Awin, CJ, impact, Amazon ...)", any(c.last_status == "ok" for c in progs), "/programs"),
+            ("Partner products website par aaye", db.query(Product).filter(Product.kind == "affiliate", Product.listing_status == "listed").count() > 0, "/programs"),
+            ("Network ki earnings API jodo (asli kamai dikhane ke liye)", any(c.type in ("aff_awin", "aff_impact", "aff_cj_affiliate") and c.secrets_enc for c in progs), "/programs"),
+            ("Dukaan online (Vercel + Render)", S.get_bool(db, "host_use_cli") or bool(S.get(db, "shop_site_url", "")), "/keys"),
+        ]]
     suppliers = db.query(Connection).filter(Connection.kind == "supplier", Connection.type != "mock_supplier").count()
     stores = db.query(Connection).filter(Connection.kind == "store", Connection.type != "mock_store").count()
     steps = [("Connect CJ Dropshipping", suppliers > 0, "/connect"), ("Connect your store or website", stores > 0, "/connect"),

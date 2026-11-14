@@ -1,0 +1,44 @@
+{% from "partials/_macros.html" import chip %}
+{% set todo = d.checklist|rejectattr("done")|list %}
+{% if todo %}<section class="panel mb-6" aria-labelledby="ck-h"><div class="panel-h"><h2 id="ck-h" class="display text-lg font-bold">Setup: {{ d.checklist|length - todo|length }} of {{ d.checklist|length }} done</h2></div>
+  <ul class="panel-b grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">{% for c in d.checklist %}<li class="flex items-center gap-2">{% if c.done %}<span class="chip chip-ok" aria-label="done">&#10003;</span><span class="muted">{{ c.label }}</span>{% else %}<span class="chip chip-warn" aria-label="to do">&#9675;</span><a href="{{ c.href }}">{{ c.label }}</a>{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+<header class="mb-6">
+  <h1 class="display text-3xl md:text-4xl font-extrabold">{% if paused %}Automation paused hai{% elif d.earn_all.count %}{{ d.earn_all.total|money }} ki commission network ne batai{% else %}Affiliate business ready{% endif %}</h1>
+  <p class="muted mt-1">{% if paused %}Upar ki bar se resume karo.{% elif not d.programs %}Pehle <a class="underline" href="/programs">Programs</a> page se koi affiliate program jodo.{% elif not d.api_ready %}Kamai dikhane ke liye Awin / impact / CJ ke API token Programs page par daalo (clicks abhi bhi ginte hain).{% else %}Products agent laata hai, kamai network ki API se aati hai (har ghante). Hum kuch andaza nahi lagate.{% endif %}</p>
+</header>
+
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6" aria-label="Affiliate at a glance">
+  <a class="tile" href="/programs"><div><div class="v num">{{ d.aff.live }}</div><div class="k">Live partner products</div></div></a>
+  <a class="tile" href="/programs"><div><div class="v num">{{ d.clicks.today }}</div><div class="k">Clicks aaj ({{ d.clicks.week }} is hafte)</div></div></a>
+  <a class="tile {{ 'ok' if d.earn30.count }}" href="/earnings"><div><div class="v num">{{ d.earn30.total|money }}</div><div class="k">Kamai, 30 din (network ke hisaab se)</div></div></a>
+  <a class="tile" href="/programs"><div><div class="v num">{{ d.programs_ok }}<span class="muted text-base font-semibold"> / {{ d.programs }}</span></div><div class="k">Programs test ok &middot; {{ d.api_ready }} mein earnings API</div></div></a>
+</section>
+
+<section class="panel mb-6" aria-label="Earnings"><div class="panel-b grid grid-cols-2 md:grid-cols-4 gap-y-5 gap-x-6">
+  <div class="fig"><span class="v num">{{ d.earn_all.pending|money }}</span><span class="k">Pending (network ne abhi approve nahi ki)</span></div>
+  <div class="fig"><span class="v num">{{ d.earn_all.approved|money }}</span><span class="k">Approved</span></div>
+  <div class="fig"><span class="v num">{{ d.earn_all.paid|money }}</span><span class="k">Paid</span></div>
+  <div class="fig"><span class="v num">{% if d.epc is not none %}{{ d.epc|money }}{% else %}-{% endif %}</span><span class="k">Kamai per click (30 din)</span></div>
+</div></section>
+
+<section class="panel mb-6" aria-labelledby="ag-h">
+  <div class="panel-h"><h2 id="ag-h" class="display text-lg font-bold">Agents, live</h2><a class="text-sm underline" href="/agents">Open full view</a></div>
+  <div class="panel-b" hx-get="/partials/agents-live" hx-trigger="every 3s" hx-swap="innerHTML">{% set snap = d.agents %}{% include "partials/_agents_live.html" %}</div>
+</section>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Sabse zyada click wale</h2><a class="text-sm underline" href="/programs">Programs</a></div>
+    {% if d.top %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for p in d.top %}<li class="px-4 py-2.5 flex justify-between gap-3"><span class="truncate">{{ p.title }} <span class="muted">({{ p.merchant }})</span></span><b class="num">{{ p.clicks }}</b></li>{% endfor %}</ul>
+    {% else %}<p class="panel-b muted">Abhi koi click nahi. Website par "Buy at ..." dabane par yahan ginti shuru hogi.</p>{% endif %}</section>
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Taza commissions</h2><a class="text-sm underline" href="/earnings">Sab dekho</a></div>
+    {% if d.recent_earn %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for e in d.recent_earn %}<li class="px-4 py-2.5 flex justify-between gap-3"><span class="truncate">{{ e.merchant or e.network }} <span class="chip chip-{{ 'ok' if e.status in ('approved','paid') else ('bad' if e.status == 'declined' else 'warn') }}">{{ e.status }}</span></span><b class="num">{% if e.amount_usd is not none %}{{ e.amount_usd|money }}{% else %}{{ e.amount }} {{ e.currency }}{% endif %}</b></li>{% endfor %}</ul>
+    {% else %}<p class="panel-b muted">Network ne abhi koi commission nahi bheji. Sale ke baad network mein aane mein kuch ghante/din lagte hain.</p>{% endif %}</section>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6">
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Open alerts <span class="num muted font-semibold">({{ d.open_alerts }})</span></h2><a class="text-sm underline" href="/alerts">See all</a></div>
+    {% if d.alerts %}<ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for a in d.alerts %}<li class="px-4 py-3 flex gap-3"><span class="chip chip-{{ 'bad' if a.level=='error' else 'warn' }} self-start">{{ a.level }}</span><div class="min-w-0 break-words">{{ a.message }}</div></li>{% endfor %}</ul>
+    {% else %}<p class="panel-b muted">Koi alert nahi.</p>{% endif %}</section>
+  <section class="panel"><div class="panel-h"><h2 class="display text-lg font-bold">Agents ka last run</h2></div>
+    <ul class="divide-y divide-dashed divide-[#D8DCD5]">{% for j in d.jobs %}<li class="px-4 py-3 flex items-center justify-between gap-3"><div><div class="font-semibold">{{ j.label }}</div><div class="text-xs muted">{{ j.ts|dt if j.ts else 'Abhi tak nahi chala' }}{% if j.summary %} &middot; {{ j.summary }}{% endif %}</div></div>{% if j.stale %}<span class="chip chip-warn">Late</span>{% else %}<span class="chip chip-ok">On time</span>{% endif %}</li>{% endfor %}</ul></section>
+</div>

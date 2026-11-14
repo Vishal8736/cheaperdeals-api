@@ -22,6 +22,8 @@ from ..models import (
 from ..security import require_login, verify_csrf
 from ..services import ops as OPS
 from ..services import diag
+from ..services import business as BZ
+from ..services import mode as MODE
 from ..services import orders as O
 from ..services import settings_service as S
 from ..services import sync as Y
@@ -40,6 +42,7 @@ JOBS = {
     "stock_price_sync": ("Stock and price sync", 26 * 60),
     "reconcile": ("Nightly reconciliation", 36 * 60),
 }
+AFF_JOBS = {"affiliate_run": ("Affiliate agent (products + links)", 3 * 60), "earnings_run": ("Earnings sync (network APIs)", 3 * 60), "maintenance": ("Daily report and backup", 26 * 60)}
 
 
 # ---- helpers -------------------------------------------------------------------------------
@@ -59,6 +62,8 @@ def page(request: Request, db: Session, name: str, **extra) -> HTMLResponse:
         "active": name.split(".")[0],
         "dev_tools": _dev_tools_available(request),
         "nav_errors": diag.error_count(db, 24),
+        "mode": MODE.current(db),
+        "nav_hide": MODE.nav_hide(db),
     }
     ctx.update(extra)
     return request.app.state.templates.TemplateResponse(request, name, ctx)
@@ -106,7 +111,34 @@ def product_stats(db: Session) -> dict:
     return {"total": total, "listed": listed, "draft": draft, "hidden": hidden, "out_of_stock": oos, "by_supplier": by_sup, "by_store": by_store, "latest": top}
 
 
-def dashboard_data(db: Session, cfg) -> dict:
+def affiliate_dashboard(db: Session, rt=None) -> dict:
+    from ..services import affiliate as AF, earnings as EA
+    from ..models import Earning
+    conns = db.query(Connection).filter(Connection.kind == "affiliate", Connection.enabled.is_(True)).all()
+    jobs = []
+    now = utcnow()
+    for key, (label, max_age) in AFF_JOBS.items():
+        ts, summary = S.last_run(db, key)
+        jobs.append({"key": key, "label": label, "ts": ts, "summary": summary, "stale": ts is None or (now - ts) > timedelta(minutes=max_age)})
+    return {
+        "mode": "affiliate", "aff": AF.counts(db), "clicks": EA.click_stats(db), "earn30": EA.totals(db, 30), "earn_all": EA.totals(db), "epc": EA.epc(db),
+        "programs_ok": sum(1 for c in conns if c.last_status == "ok"), "programs": len(conns),
+        "api_ready": sum(1 for c in conns if c.type in EA.FETCHERS and rt is not None and any(rt.connectors.secrets_of(c).get(k) for k in EA._cred_keys(c.type))),
+        "top": db.query(Product).filter(Product.kind == "affiliate", Product.clicks > 0).order_by(Product.clicks.desc()).limit(6).all(),
+        "recent_earn": db.query(Earning).order_by(Earning.occurred_at.desc()).limit(8).all(),
+        "alerts": db.query(Alert).filter(Alert.resolved.is_(False)).order_by(Alert.id.desc()).limit(5).all(),
+        "open_alerts": db.query(Alert).filter(Alert.resolved.is_(False)).count(),
+        "jobs": jobs, "checklist": OPS.checklist(db), "agents": A.snapshot(db),
+    }
+
+
+def dashboard_data(db: Session, cfg, rt=None) -> dict:
+    d = affiliate_dashboard(db, rt) if MODE.is_affiliate(db) else _dropship_dashboard(db, cfg)
+    d["biz"] = [{"key": k, "label": BZ.BY_KEY[k].label, "on": MODE.is_on(db, k), "built": BZ.BY_KEY[k].built} for k in MODE.KEYS]
+    return d
+
+
+def _dropship_dashboard(db: Session, cfg) -> dict:
     start = O._local_day_start_utc(cfg)
     counts = dict(db.query(Order.status, func.count(Order.id)).group_by(Order.status).all())
     today = db.query(Order).filter(Order.created_at >= start).all()
@@ -144,13 +176,13 @@ def dashboard_data(db: Session, cfg) -> dict:
 # ---- dashboard -----------------------------------------------------------------------------
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
-    return page(request, db, "dashboard.html", d=dashboard_data(db, request.app.state.cfg))
+    return page(request, db, "dashboard.html", d=dashboard_data(db, request.app.state.cfg, request.app.state.rt))
 
 
 @router.get("/partials/dashboard", response_class=HTMLResponse)
 def dashboard_partial(request: Request, db: Session = Depends(get_db)):
     return request.app.state.templates.TemplateResponse(
-        request, "partials/_dashboard_body.html", {"d": dashboard_data(db, request.app.state.cfg), "paused": S.get_bool(db, "paused"),
+        request, "partials/_dashboard_body.html", {"d": dashboard_data(db, request.app.state.cfg, request.app.state.rt), "mode": MODE.current(db), "paused": S.get_bool(db, "paused"),
                                                     "dry_run": S.get_bool(db, "dry_run")})
 
 
@@ -426,6 +458,14 @@ async def settings_save(request: Request, db: Session = Depends(get_db)):
     else:
         db.commit()
         flash(request, "ok", "Settings saved.")
+    return back("/settings")
+
+
+@router.post("/settings/mode", dependencies=[Depends(verify_csrf)])
+def business_mode(request: Request, mode: str = Form("affiliate"), db: Session = Depends(get_db)):
+    m = MODE.set_mode(db, mode)
+    db.commit()
+    flash(request, "ok", "Affiliate mode chalu: dropship agents so gaye." if m == "affiliate" else "Dropship mode chalu: purane agents jaag gaye.")
     return back("/settings")
 
 

@@ -1,0 +1,1 @@
+pod business ki alag website. Is folder ko apne naye Vercel project par deploy karo (vercel.json mein /api apne Render server par forward hona chahiye, jaise storefront-only mein). Phir uska link Business switchboard > 'Har business ki apni website' mein likho.

@@ -150,6 +150,9 @@ def _program_types() -> list[ConnectorType]:
     def make(p):
         def factory(cfg: dict, sec: dict, ctx: dict, _p=p):
             prog = {"key": _p.key, "label": _p.label}
+            if _p.key in ("aff_awin", "aff_impact", "aff_cj_affiliate") and not sec.get("feed_url"):
+                from ..services.earnings import EarningsOnlySource  # credentials only, no feed: earnings sync, nothing to import
+                return EarningsOnlySource(_p.key, cfg, sec, prog)
             return {"feed": AS.FeedSource, "amazon": AS.AmazonCreatorsSource, "ebay": AS.EbaySource}[_p.mode](cfg, sec, prog) if _p.mode in ("feed", "amazon", "ebay") \
                 else (pod.PrintfulSupplier if _p.mode == "printful" else pod.PrintifySupplier)(cfg, sec)
         kind = "supplier" if p.mode in ("printful", "printify") else "affiliate"

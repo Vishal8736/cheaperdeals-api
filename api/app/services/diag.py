@@ -445,7 +445,8 @@ def health_checks(db, cfg=None) -> list[dict]:
         add("Log writer", not sk.last_error, sk.last_error or f"{sk.written} line save hui" + (f", {sk.dropped} dohrai hui chhodi" if sk.dropped else ""))
     add("Log file", None if not _STATE["file"] else True, _STATE["file"] or "file log band (test/dev)")
     cj = C.read_secret(db, "host_env_cj_enc")
-    add("CJ API key", bool(cj), "daali hui hai" if cj else "API Keys page par daalo")
+    from . import mode as _MODE
+    add("CJ API key", True if cj else (None if _MODE.is_affiliate(db) else False), "daali hui hai" if cj else ("affiliate mode mein zaroori nahi" if _MODE.is_affiliate(db) else "API Keys page par daalo"))
     for w, exe in (("Vercel", "vercel"), ("Render", "render"), ("GitHub", "gh"), ("Neon", "neon")):
         found = shutil.which(exe) or (shutil.which("neonctl") if w == "Neon" else None) or (shutil.which("npx") if w in ("Vercel", "Neon") else None)
         add(f"{w} CLI", bool(found), found or "PATH mein nahi mili")

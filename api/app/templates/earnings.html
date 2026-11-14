@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import csrf with context %}
+{% block title %}Earnings - Cheape Deal{% endblock %}
+{% block content %}
+<div class="mb-5">
+  <h1 class="display text-3xl font-extrabold">Earnings (kamai)</h1>
+  <p class="muted mt-1 max-w-[72ch]">Ye sirf wahi commission hai jo <b>network ki API ne khud bataya</b> (Awin, impact.com, CJ Affiliate). Hum koi andaza ya nakli number nahi dikhate. Clicks hamari apni ginti hain. Pending ka matlab merchant ne abhi sale confirm nahi ki; declined/return hone par wo ghat bhi sakti hai.</p>
+</div>
+<div class="grid sm:grid-cols-4 gap-3 mb-5">
+  <div class="panel panel-b"><div class="muted text-sm">Pending</div><div class="display text-2xl font-extrabold">{{ t.pending|money }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Approved</div><div class="display text-2xl font-extrabold">{{ t.approved|money }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Paid</div><div class="display text-2xl font-extrabold">{{ t.paid|money }}</div></div>
+  <div class="panel panel-b"><div class="muted text-sm">Clicks aaj / hafta / 30 din</div><div class="display text-2xl font-extrabold">{{ clicks.today }} / {{ clicks.week }} / {{ clicks.month }}</div></div>
+</div>
+{% if t.no_rate %}<div class="help mb-4" style="display:block">{{ t.no_rate }} commission ki currency ka exchange rate nahi hai, isliye wo upar ke total mein nahi judi. Rate Strategy page par daalo.</div>{% endif %}
+
+<div class="panel mb-5"><div class="panel-h"><h2 class="display text-lg font-bold">Networks (API se)</h2>
+  <form method="post" action="/earnings/sync">{{ csrf() }}<button class="btn btn-accent btn-sm">Abhi sync karo</button></form></div>
+  <div class="overflow-x-auto"><table class="tbl"><thead><tr><th>Network</th><th>Connection</th><th>API credentials</th><th>Aakhri sync</th><th>Commissions</th></tr></thead><tbody>
+  {% for n in networks %}<tr><td><b>{{ n.label }}</b></td><td>{{ n.conn or '-' }}</td>
+    <td>{% if n.ready %}<span class="chip chip-ok">daale hue hain</span>{% elif n.conn %}<span class="chip chip-warn">nahi daale</span> <a class="underline text-sm" href="/connect/{{ n.cid }}/edit">daalo</a>{% else %}<a class="underline text-sm" href="/programs">program jodo</a>{% endif %}</td>
+    <td class="muted">{{ n.last or '-' }}</td><td class="num">{{ n.count }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="panel-b help" style="display:block">Awin ka endpoint, token aur 31-din ki limit Awin ke docs se hai. impact.com aur CJ ka format yaad se likha hai (unke docs yahan se khul nahi paye) aur kisi asli account par chala nahi. Koi network galat jawab de to Agents/Diagnostics mein exact message dikhega.</p></div>
+
+{% if top %}<div class="panel mb-5"><div class="panel-h">Kis product se kamai hui (sub-id se)</div><div class="panel-b grid gap-1 text-sm">{% for name, amt in top %}<div class="flex justify-between gap-3"><span class="truncate">{{ name }}</span><b>{{ amt|money }}</b></div>{% endfor %}</div></div>{% endif %}
+
+<div class="panel"><div class="panel-h">Taza transactions</div>
+  {% if rows %}<div class="overflow-x-auto"><table class="tbl"><thead><tr><th>Date</th><th>Network</th><th>Merchant</th><th>Status</th><th class="right">Commission</th><th class="right">Sale</th></tr></thead><tbody>
+  {% for e in rows %}<tr><td class="muted">{{ e.occurred_at|dt }}</td><td>{{ names.get(e.network, e.network) }}</td><td>{{ e.merchant or '-' }}</td>
+    <td><span class="chip chip-{{ 'ok' if e.status in ('approved','paid') else ('bad' if e.status == 'declined' else 'warn') }}">{{ e.status }}</span></td>
+    <td class="right num">{% if e.amount_usd is not none %}{{ e.amount_usd|money }}{% else %}{{ e.amount }} {{ e.currency }}{% endif %}</td><td class="right num">{% if e.sale_usd is not none %}{{ e.sale_usd|money }}{% else %}-{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="panel-b muted">Abhi network se koi transaction nahi aaya. API credentials daalne ke baad "Abhi sync karo" dabao; ya agent har ghante khud laata hai.</p>{% endif %}</div>
+{% endblock %}

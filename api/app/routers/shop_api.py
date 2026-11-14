@@ -47,13 +47,23 @@ def _process_in_background(app, order_id: int) -> None:
 
 
 @router.get("/config")
-def config(request: Request, db: Session = Depends(get_db)):
-    return _json(shop.public_config(db), request, cache=EDGE)
+def config(request: Request, biz: str = "", db: Session = Depends(get_db)):
+    return _json(shop.public_config(db, biz[:12]), request, cache=EDGE)
 
 
 @router.get("/products")
-def products(request: Request, db: Session = Depends(get_db)):
-    return _json({"products": shop.products(db)}, request, cache=EDGE)
+def products(request: Request, biz: str = "", db: Session = Depends(get_db)):
+    return _json({"products": shop.products(db, biz[:12])}, request, cache=EDGE)
+
+
+@router.get("/design/{token}.png")
+def design_png(token: str, db: Session = Depends(get_db)):
+    """The print file for a POD design. Printful downloads it from here. The token is random and only ever matches a design made by our own agent."""
+    from ..models import Design
+    d = db.query(Design).filter(Design.token == token[:32]).first() if token.isalnum() else None
+    if d is None:
+        raise HTTPException(404)
+    return Response(d.png, media_type="image/png", headers={"Cache-Control": "public, max-age=86400", "X-Robots-Tag": "noindex"})
 
 
 @router.get("/go/{pid:int}")
